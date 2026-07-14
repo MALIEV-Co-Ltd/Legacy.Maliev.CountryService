@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 
+using YamlDotNet.Core;
 using YamlDotNet.RepresentationModel;
 
 namespace Legacy.Maliev.CountryService.Tests.Workflows;
@@ -62,6 +63,14 @@ public sealed class WorkflowContractTests
         AssertMutationRejected(
             "          solution: Legacy.Maliev.CountryService.slnx",
             "          solution: Legacy.Maliev.CountryService.slnx\n      - run: dotnet  restore Legacy.Maliev.CountryService.slnx");
+    }
+
+    [Fact]
+    public void BuildAndTest_RejectsMissingSharedActionGitHubActionsOverride()
+    {
+        AssertMutationRejected(
+            "        env:\n          GITHUB_ACTIONS: 'false'\n",
+            string.Empty);
     }
 
     private static void AssertMutationRejected(string original, string replacement)
@@ -177,6 +186,10 @@ internal static partial class WorkflowContractValidator
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["solution"] = "Legacy.Maliev.CountryService.slnx",
+            },
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["GITHUB_ACTIONS"] = "false",
             });
     }
 
@@ -191,10 +204,19 @@ internal static partial class WorkflowContractValidator
         return ["contents:read"];
     }
 
-    private static void ValidateStep(YamlNode node, string expectedAction, IReadOnlyDictionary<string, string> expectedInputs)
+    private static void ValidateStep(
+        YamlNode node,
+        string expectedAction,
+        IReadOnlyDictionary<string, string> expectedInputs,
+        IReadOnlyDictionary<string, string>? expectedEnvironment = null)
     {
         var step = RequireMapping(node, "workflow step");
         var allowedKeys = new HashSet<string>(["name", "uses", "with"], StringComparer.Ordinal);
+        if (expectedEnvironment is not null)
+        {
+            allowedKeys.Add("env");
+        }
+
         var actualKeys = step.Children.Keys.Select(RequireScalar).ToHashSet(StringComparer.Ordinal);
         if (!actualKeys.SetEquals(allowedKeys))
         {
@@ -217,6 +239,28 @@ internal static partial class WorkflowContractValidator
         foreach (var expectedInput in expectedInputs)
         {
             RequireScalarValue(inputs, expectedInput.Key, expectedInput.Value);
+        }
+
+        if (expectedEnvironment is null)
+        {
+            return;
+        }
+
+        var environment = RequireMapping(step, "env");
+        if (environment.Children.Count != expectedEnvironment.Count)
+        {
+            throw new InvalidOperationException($"Action {expectedAction} has an unexpected environment variable count.");
+        }
+
+        foreach (var expectedVariable in expectedEnvironment)
+        {
+            RequireScalarValue(environment, expectedVariable.Key, expectedVariable.Value);
+        }
+
+        var githubActions = GetRequired(environment, "GITHUB_ACTIONS") as YamlScalarNode;
+        if (githubActions?.Style != ScalarStyle.SingleQuoted)
+        {
+            throw new InvalidOperationException("GITHUB_ACTIONS must use the single-quoted string value 'false'.");
         }
     }
 

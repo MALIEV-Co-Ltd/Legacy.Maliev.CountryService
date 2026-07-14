@@ -33,5 +33,7 @@ jobs:
           persist-credentials: false
       - name: Validate .NET solution
         uses: MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@4f4cccc99ac46d46c2bcc487b0f5fa4f939b0191
+        env:
+          GITHUB_ACTIONS: 'false'
         with:
           solution: Legacy.Maliev.CountryService.slnx
