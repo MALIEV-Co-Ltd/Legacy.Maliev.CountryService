@@ -1,10 +1,32 @@
 # Legacy.Maliev.CountryService
 
+[![PR validation](https://github.com/MALIEV-Co-Ltd/Legacy.Maliev.CountryService/actions/workflows/pr-validation.yml/badge.svg)](https://github.com/MALIEV-Co-Ltd/Legacy.Maliev.CountryService/actions/workflows/pr-validation.yml)
+[![Main deployment](https://github.com/MALIEV-Co-Ltd/Legacy.Maliev.CountryService/actions/workflows/ci-main.yml/badge.svg)](https://github.com/MALIEV-Co-Ltd/Legacy.Maliev.CountryService/actions/workflows/ci-main.yml)
+
 Temporary .NET 10 compatibility service extracted from `maliev-web`. It preserves
 the legacy integer-key `Country` schema and `/Countries` JSON contract while the
 new `Maliev.CountryService` is developed independently.
 
-## Boundaries
+## Architecture
+
+The service uses clean dependency direction: `Api` calls `Application`, domain rules live in
+`Domain`, and PostgreSQL/Redis adapters live in `Data`. It depends on the public MALIEV Aspire
+and messaging-contract source repositories during CI and image builds, so no private package
+credentials are required.
+
+## API endpoints
+
+| Purpose | Method | Route | Access |
+| --- | --- | --- | --- |
+| Legacy country list | `GET` | `/Countries` | Anonymous |
+| Legacy country lookup | `GET` | `/Countries/{id}` | `legacy-country.countries.read` |
+| Legacy country create | `POST` | `/Countries` | `legacy-country.countries.create` |
+| Legacy country update | `PUT` | `/Countries/{id}` | `legacy-country.countries.update` |
+| Legacy country delete | `DELETE` | `/Countries/{id}` | `legacy-country.countries.delete` |
+| Versioned list | `GET` | `/country/v1/countries` | Anonymous |
+| Scalar UI | `GET` | `/countries/scalar` | Anonymous |
+
+## Runtime boundaries
 
 - Legacy route: `/Countries`
 - Versioned route: `/country/v1/countries`

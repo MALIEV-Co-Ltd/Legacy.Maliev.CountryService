@@ -1,0 +1,43 @@
+name: Build and test
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    env:
+      MalievWorkspaceRoot: ${{ github.workspace }}/.dependencies
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: MALIEV-Co-Ltd/Maliev.Aspire
+          path: .dependencies/Maliev.Aspire
+      - uses: actions/checkout@v7
+        with:
+          repository: MALIEV-Co-Ltd/Maliev.MessagingContracts
+          path: .dependencies/Maliev.MessagingContracts
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+      - name: Restore
+        run: GITHUB_ACTIONS=false dotnet restore Legacy.Maliev.CountryService.slnx
+      - name: Build
+        run: GITHUB_ACTIONS=false dotnet build Legacy.Maliev.CountryService.slnx --configuration Release --no-restore
+      - name: Test
+        run: GITHUB_ACTIONS=false dotnet test Legacy.Maliev.CountryService.slnx --configuration Release --no-build --no-restore
+      - name: Format
+        run: GITHUB_ACTIONS=false dotnet format Legacy.Maliev.CountryService.slnx --verify-no-changes --no-restore
+      - name: Vulnerability audit
+        run: GITHUB_ACTIONS=false dotnet list Legacy.Maliev.CountryService.slnx package --vulnerable --include-transitive --no-restore

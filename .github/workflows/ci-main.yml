@@ -1,0 +1,63 @@
+name: CI and deploy - Main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    uses: ./.github/workflows/_build-and-test.yml
+
+  publish:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: MALIEV-Co-Ltd/Maliev.Aspire
+          path: .dependencies/Maliev.Aspire
+      - uses: actions/checkout@v7
+        with:
+          repository: MALIEV-Co-Ltd/Maliev.MessagingContracts
+          path: .dependencies/Maliev.MessagingContracts
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/1036965383273/locations/global/workloadIdentityPools/github/providers/legacy-maliev-country
+          service_account: github-actions-artifact-writer@maliev-website.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - uses: imranismail/setup-kustomize@v3
+      - name: Build and push image
+        env:
+          IMAGE: asia-southeast1-docker.pkg.dev/maliev-website/maliev-website-artifact-prod/legacy-maliev-country-service:${{ github.sha }}
+        run: |
+          gcloud auth configure-docker asia-southeast1-docker.pkg.dev --quiet
+          docker build -f Legacy.Maliev.CountryService.Api/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+      - name: Update GitOps through a pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITOPS_PAT }}
+          IMAGE: asia-southeast1-docker.pkg.dev/maliev-website/maliev-website-artifact-prod/legacy-maliev-country-service:${{ github.sha }}
+        run: |
+          git clone https://x-access-token:${GH_TOKEN}@github.com/MALIEV-Co-Ltd/maliev-gitops.git gitops
+          cd gitops/3-apps/_legacy-country-service/overlays/legacy
+          kustomize edit set image legacy-maliev-country-service="$IMAGE"
+          cd ../../../..
+          branch="legacy-country/${GITHUB_SHA}"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b "$branch"
+          git add 3-apps/_legacy-country-service/overlays/legacy/kustomization.yaml
+          git commit -m "chore(legacy): deploy country service ${GITHUB_SHA}"
+          git push origin "$branch"
+          gh pr create --repo MALIEV-Co-Ltd/maliev-gitops --base main --head "$branch" \
+            --title "chore(legacy): deploy country service" \
+            --body "Deploys Legacy.Maliev.CountryService commit ${GITHUB_SHA} to maliev-legacy."
