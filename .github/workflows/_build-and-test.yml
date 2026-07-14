@@ -8,38 +8,30 @@ permissions:
 
 jobs:
   validate:
+    name: validate
     runs-on: ubuntu-latest
     env:
       MalievWorkspaceRoot: ${{ github.workspace }}/.dependencies
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/checkout@v7
+      - name: Check out CountryService
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Check out Maliev.Aspire
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           repository: MALIEV-Co-Ltd/Maliev.Aspire
           ref: 085f24b8b6b19c5a8e932b229d93421b03bcd032
           path: .dependencies/Maliev.Aspire
-      - uses: actions/checkout@v7
+          persist-credentials: false
+      - name: Check out Maliev.MessagingContracts
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           repository: MALIEV-Co-Ltd/Maliev.MessagingContracts
           ref: c533c12a8154f5cf7c4fbc9734e82a62705ac60f
           path: .dependencies/Maliev.MessagingContracts
-      - uses: actions/setup-dotnet@v5
+          persist-credentials: false
+      - name: Validate .NET solution
+        uses: MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@4f4cccc99ac46d46c2bcc487b0f5fa4f939b0191
         with:
-          dotnet-version: 10.0.x
-      - name: Cache NuGet packages
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', 'Directory.Build.props') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-
-      - name: Restore
-        run: GITHUB_ACTIONS=false dotnet restore Legacy.Maliev.CountryService.slnx
-      - name: Build
-        run: GITHUB_ACTIONS=false dotnet build Legacy.Maliev.CountryService.slnx --configuration Release --no-restore
-      - name: Test
-        run: GITHUB_ACTIONS=false dotnet test Legacy.Maliev.CountryService.slnx --configuration Release --no-build --no-restore
-      - name: Format
-        run: GITHUB_ACTIONS=false dotnet format Legacy.Maliev.CountryService.slnx --verify-no-changes --no-restore
-      - name: Vulnerability audit
-        run: GITHUB_ACTIONS=false dotnet list Legacy.Maliev.CountryService.slnx package --vulnerable --include-transitive --no-restore
+          solution: Legacy.Maliev.CountryService.slnx
