@@ -29,7 +29,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           repository: MALIEV-Co-Ltd/Maliev.MessagingContracts
-          ref: 1d58583676bc1c6e5cad74f30e1e96ff0a761464
+          ref: c533c12a8154f5cf7c4fbc9734e82a62705ac60f
           path: .dependencies/Maliev.MessagingContracts
       - uses: google-github-actions/auth@v3
         with:
