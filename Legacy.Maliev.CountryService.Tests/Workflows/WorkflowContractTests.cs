@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+
 using YamlDotNet.RepresentationModel;
 
 namespace Legacy.Maliev.CountryService.Tests.Workflows;
@@ -44,6 +46,16 @@ public sealed class WorkflowContractTests
         Assert.Throws<InvalidOperationException>(() => WorkflowContractValidator.Validate(mutated));
     }
 
+    [Theory]
+    [InlineData("${{secrets.X}}")]
+    [InlineData("${{ secrets['X'] }}")]
+    public void BuildAndTest_RejectsSecretExpressionInJobEnvironment(string expression)
+    {
+        AssertMutationRejected(
+            "    env:\n      MalievWorkspaceRoot: ${{ github.workspace }}/.dependencies",
+            $"    env:\n      MalievWorkspaceRoot: ${{{{ github.workspace }}}}/.dependencies\n      REVIEW_TOKEN: {expression}");
+    }
+
     [Fact]
     public void BuildAndTest_RejectsWhitespaceObfuscatedRestoreCommand()
     {
@@ -79,14 +91,14 @@ public sealed class WorkflowContractTests
     }
 }
 
-internal static class WorkflowContractValidator
+internal static partial class WorkflowContractValidator
 {
     private const string CheckoutAction = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0";
     private const string SharedValidationAction = "MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@4f4cccc99ac46d46c2bcc487b0f5fa4f939b0191";
 
     public static void Validate(string workflow)
     {
-        if (workflow.Contains("${{ secrets.", StringComparison.OrdinalIgnoreCase))
+        if (SecretExpression().IsMatch(workflow))
         {
             throw new InvalidOperationException("Workflow must not reference secrets.");
         }
@@ -310,4 +322,7 @@ internal static class WorkflowContractValidator
 
         return null;
     }
+
+    [GeneratedRegex(@"\$\{\{\s*secrets\s*(?:\.|\[)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+    private static partial Regex SecretExpression();
 }
