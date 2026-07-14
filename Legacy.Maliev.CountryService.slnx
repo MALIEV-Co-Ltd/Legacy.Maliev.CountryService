@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj" />
+  <Project Path="Legacy.Maliev.CountryService.Application/Legacy.Maliev.CountryService.Application.csproj" />
+  <Project Path="Legacy.Maliev.CountryService.Data/Legacy.Maliev.CountryService.Data.csproj" />
+  <Project Path="Legacy.Maliev.CountryService.Domain/Legacy.Maliev.CountryService.Domain.csproj" />
+  <Project Path="Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj" />
+</Solution>

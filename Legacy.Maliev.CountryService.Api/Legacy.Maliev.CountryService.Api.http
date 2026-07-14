@@ -1,0 +1,6 @@
+@Legacy.Maliev.CountryService.Api_HostAddress = http://localhost:5033
+
+GET {{Legacy.Maliev.CountryService.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
