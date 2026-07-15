@@ -19,8 +19,8 @@ public sealed class WorkflowContractTests
     public void BuildAndTest_RejectsSharedActionMainWithPinnedShaComment()
     {
         AssertMutationRejected(
-            "MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@4f4cccc99ac46d46c2bcc487b0f5fa4f939b0191",
-            "MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@main # 4f4cccc99ac46d46c2bcc487b0f5fa4f939b0191");
+            "MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@f7bafd4ba7e8e6e92a0b7d853150f3ca60e1eae6",
+            "MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@main # f7bafd4ba7e8e6e92a0b7d853150f3ca60e1eae6");
     }
 
     [Fact]
@@ -66,11 +66,19 @@ public sealed class WorkflowContractTests
     }
 
     [Fact]
-    public void BuildAndTest_RejectsMissingSharedActionGitHubActionsOverride()
+    public void BuildAndTest_RejectsMissingLocalDependencyOptIn()
     {
         AssertMutationRejected(
-            "        env:\n          GITHUB_ACTIONS: 'false'\n",
+            "          use-local-maliev-dependencies: 'true'\n",
             string.Empty);
+    }
+
+    [Fact]
+    public void BuildAndTest_RejectsReservedGitHubActionsOverride()
+    {
+        AssertMutationRejected(
+            "          use-local-maliev-dependencies: 'true'\n",
+            "          use-local-maliev-dependencies: 'true'\n        env:\n          GITHUB_ACTIONS: 'false'\n");
     }
 
     private static void AssertMutationRejected(string original, string replacement)
@@ -103,7 +111,7 @@ public sealed class WorkflowContractTests
 internal static partial class WorkflowContractValidator
 {
     private const string CheckoutAction = "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0";
-    private const string SharedValidationAction = "MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@4f4cccc99ac46d46c2bcc487b0f5fa4f939b0191";
+    private const string SharedValidationAction = "MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@f7bafd4ba7e8e6e92a0b7d853150f3ca60e1eae6";
 
     public static void Validate(string workflow)
     {
@@ -186,10 +194,7 @@ internal static partial class WorkflowContractValidator
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["solution"] = "Legacy.Maliev.CountryService.slnx",
-            },
-            new Dictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["GITHUB_ACTIONS"] = "false",
+                ["use-local-maliev-dependencies"] = "true",
             });
     }
 
@@ -207,15 +212,10 @@ internal static partial class WorkflowContractValidator
     private static void ValidateStep(
         YamlNode node,
         string expectedAction,
-        IReadOnlyDictionary<string, string> expectedInputs,
-        IReadOnlyDictionary<string, string>? expectedEnvironment = null)
+        IReadOnlyDictionary<string, string> expectedInputs)
     {
         var step = RequireMapping(node, "workflow step");
         var allowedKeys = new HashSet<string>(["name", "uses", "with"], StringComparer.Ordinal);
-        if (expectedEnvironment is not null)
-        {
-            allowedKeys.Add("env");
-        }
 
         var actualKeys = step.Children.Keys.Select(RequireScalar).ToHashSet(StringComparer.Ordinal);
         if (!actualKeys.SetEquals(allowedKeys))
@@ -241,26 +241,19 @@ internal static partial class WorkflowContractValidator
             RequireScalarValue(inputs, expectedInput.Key, expectedInput.Value);
         }
 
-        if (expectedEnvironment is null)
+        var environment = GetOptional(step, "env");
+        if (environment is not null)
         {
-            return;
+            throw new InvalidOperationException("Workflow action steps must not override reserved environment variables.");
         }
 
-        var environment = RequireMapping(step, "env");
-        if (environment.Children.Count != expectedEnvironment.Count)
+        if (expectedInputs.ContainsKey("use-local-maliev-dependencies"))
         {
-            throw new InvalidOperationException($"Action {expectedAction} has an unexpected environment variable count.");
-        }
-
-        foreach (var expectedVariable in expectedEnvironment)
-        {
-            RequireScalarValue(environment, expectedVariable.Key, expectedVariable.Value);
-        }
-
-        var githubActions = GetRequired(environment, "GITHUB_ACTIONS") as YamlScalarNode;
-        if (githubActions?.Style != ScalarStyle.SingleQuoted)
-        {
-            throw new InvalidOperationException("GITHUB_ACTIONS must use the single-quoted string value 'false'.");
+            var useLocalDependencies = GetRequired(inputs, "use-local-maliev-dependencies") as YamlScalarNode;
+            if (useLocalDependencies?.Style != ScalarStyle.SingleQuoted)
+            {
+                throw new InvalidOperationException("use-local-maliev-dependencies must use the single-quoted string value 'true'.");
+            }
         }
     }
 

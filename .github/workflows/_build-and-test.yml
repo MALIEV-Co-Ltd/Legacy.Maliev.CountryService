@@ -32,8 +32,7 @@ jobs:
           path: .dependencies/Maliev.MessagingContracts
           persist-credentials: false
       - name: Validate .NET solution
-        uses: MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@4f4cccc99ac46d46c2bcc487b0f5fa4f939b0191
-        env:
-          GITHUB_ACTIONS: 'false'
+        uses: MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@f7bafd4ba7e8e6e92a0b7d853150f3ca60e1eae6
         with:
           solution: Legacy.Maliev.CountryService.slnx
+          use-local-maliev-dependencies: 'true'
