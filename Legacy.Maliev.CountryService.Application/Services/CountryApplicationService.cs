@@ -61,7 +61,7 @@ public sealed class CountryApplicationService(
         UpsertCountryRequest request,
         CancellationToken cancellationToken)
     {
-        var country = await repository.GetByIdAsync(id, cancellationToken);
+        var country = await repository.GetByIdForUpdateAsync(id, cancellationToken);
         if (country is null)
         {
             return false;
@@ -81,7 +81,7 @@ public sealed class CountryApplicationService(
     /// <inheritdoc />
     public async Task<bool> DeleteAsync(int id, CancellationToken cancellationToken)
     {
-        var country = await repository.GetByIdAsync(id, cancellationToken);
+        var country = await repository.GetByIdForUpdateAsync(id, cancellationToken);
         if (country is null)
         {
             return false;

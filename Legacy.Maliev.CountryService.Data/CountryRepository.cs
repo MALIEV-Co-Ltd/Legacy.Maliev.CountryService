@@ -14,6 +14,11 @@ public sealed class CountryRepository(CountryDbContext dbContext) : ICountryRepo
 
     /// <inheritdoc />
     public Task<Country?> GetByIdAsync(int id, CancellationToken cancellationToken) =>
+        dbContext.Countries.AsNoTracking()
+            .SingleOrDefaultAsync(country => country.Id == id, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<Country?> GetByIdForUpdateAsync(int id, CancellationToken cancellationToken) =>
         dbContext.Countries.SingleOrDefaultAsync(country => country.Id == id, cancellationToken);
 
     /// <inheritdoc />

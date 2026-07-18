@@ -34,10 +34,25 @@ public sealed class CountryRepositoryTests : IAsyncLifetime
         };
 
         await repository.AddAsync(country, CancellationToken.None);
+        context.ChangeTracker.Clear();
         var loaded = await repository.GetByIdAsync(country.Id, CancellationToken.None);
 
         Assert.NotNull(loaded);
         Assert.Equal("Thailand", loaded.Name);
         Assert.Equal("TH", loaded.Iso2);
+        Assert.Empty(context.ChangeTracker.Entries());
+
+        var tracked = await repository.GetByIdForUpdateAsync(country.Id, CancellationToken.None);
+        Assert.NotNull(tracked);
+        tracked.Name = "Kingdom of Thailand";
+        await repository.UpdateAsync(tracked, CancellationToken.None);
+        context.ChangeTracker.Clear();
+
+        Assert.Equal(
+            "Kingdom of Thailand",
+            await context.Countries.AsNoTracking()
+                .Where(value => value.Id == country.Id)
+                .Select(value => value.Name)
+                .SingleAsync());
     }
 }
