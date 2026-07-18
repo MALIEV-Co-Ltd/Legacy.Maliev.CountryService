@@ -69,7 +69,7 @@ Legacy.Maliev.CountryService/
 - **JSON**: Check existing conventions in this service for naming policy
 - **Manual mapping**: Static extension methods (`ToDto()`, `ToEntity()`). AutoMapper is banned
 - **Validation**: `System.ComponentModel.DataAnnotations` on DTOs. FluentValidation is banned
-- **Observability**: Uses `Maliev.Aspire.ServiceDefaults` for OpenTelemetry, logging, and health checks
+- **Observability**: Uses `Legacy.Maliev.ServiceDefaults` (compatibility namespace retained) for OpenTelemetry, logging, and health checks
 - **LoggerMessage**: Prefer `[LoggerMessage]` source generator for high-performance logging
 
 ---
