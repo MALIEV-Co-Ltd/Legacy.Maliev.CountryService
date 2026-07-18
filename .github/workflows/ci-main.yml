@@ -1,4 +1,4 @@
-name: CI and deploy - Main
+name: CI - Main
 
 on:
   push:
@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -18,19 +17,28 @@ jobs:
 
   publish:
     needs: validate
+    if: vars.LEGACY_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-latest
+    environment: legacy-production
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          repository: MALIEV-Co-Ltd/Maliev.Aspire
-          ref: 085f24b8b6b19c5a8e932b229d93421b03bcd032
-          path: .dependencies/Maliev.Aspire
-      - uses: actions/checkout@v7
+          persist-credentials: false
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          repository: MALIEV-Co-Ltd/Maliev.MessagingContracts
-          ref: c533c12a8154f5cf7c4fbc9734e82a62705ac60f
-          path: .dependencies/Maliev.MessagingContracts
+          repository: MALIEV-Co-Ltd/Legacy.Maliev.ServiceDefaults
+          ref: bcab875a7f703d1d9c2d535479e93653720eb62d
+          path: .dependencies/Legacy.Maliev.ServiceDefaults
+          persist-credentials: false
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          repository: MALIEV-Co-Ltd/Legacy.Maliev.CompatibilityContracts
+          ref: 95c62eb6209411f5aada443b315447a2f76ca0cd
+          path: .dependencies/Legacy.Maliev.CompatibilityContracts
+          persist-credentials: false
       - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: projects/1036965383273/locations/global/workloadIdentityPools/github/providers/legacy-maliev-country
