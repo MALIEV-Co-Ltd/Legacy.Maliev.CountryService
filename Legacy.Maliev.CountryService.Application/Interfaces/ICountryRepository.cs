@@ -8,8 +8,12 @@ public interface ICountryRepository
     /// <summary>Returns all records without tracking.</summary>
     Task<IReadOnlyList<Country>> GetAllAsync(CancellationToken cancellationToken);
 
-    /// <summary>Returns one tracked record.</summary>
+    /// <summary>Returns one record without tracking for read-only use.</summary>
     Task<Country?> GetByIdAsync(int id, CancellationToken cancellationToken);
+
+    /// <summary>Returns one tracked record for update or deletion.</summary>
+    Task<Country?> GetByIdForUpdateAsync(int id, CancellationToken cancellationToken) =>
+        GetByIdAsync(id, cancellationToken);
 
     /// <summary>Adds and saves a record.</summary>
     Task AddAsync(Country country, CancellationToken cancellationToken);
