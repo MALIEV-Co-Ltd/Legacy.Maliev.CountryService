@@ -91,6 +91,21 @@ public sealed class WorkflowContractTests
             "          use-local-maliev-dependencies: 'true'\n        env:\n          GITHUB_ACTIONS: 'false'\n");
     }
 
+    [Fact]
+    public void MainWorkflow_OnlyValidatesAndCannotPublish()
+    {
+        var workflow = File.ReadAllText(FindRepositoryFile(".github", "workflows", "ci-main.yml"));
+
+        Assert.Contains("uses: ./.github/workflows/_build-and-test.yml", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("id-token: write", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("docker push", workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("gcloud auth", workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("kustomize edit", workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("git push", workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("GITOPS_PAT", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("LEGACY_DEPLOY_ENABLED", workflow, StringComparison.Ordinal);
+    }
+
     private static void AssertMutationRejected(string original, string replacement)
     {
         Assert.Contains(original, Workflow, StringComparison.Ordinal);
