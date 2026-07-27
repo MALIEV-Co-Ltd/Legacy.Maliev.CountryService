@@ -6,25 +6,27 @@ public sealed class MainWorkflowContractTests
         FindRepositoryFile(".github", "workflows", "ci-main.yml"));
 
     [Fact]
-    public void MainWorkflow_ValidatesButCannotPublishWithoutExplicitOwnerGate()
+    public void MainWorkflow_OnlyRunsValidation()
     {
         Assert.Contains("name: CI - Main", Workflow, StringComparison.Ordinal);
         Assert.Contains("validate:", Workflow, StringComparison.Ordinal);
-        Assert.Contains("needs: validate", Workflow, StringComparison.Ordinal);
-        Assert.Contains("if: vars.LEGACY_DEPLOY_ENABLED == 'true'", Workflow, StringComparison.Ordinal);
-        Assert.Contains("environment: legacy-production", Workflow, StringComparison.Ordinal);
+        Assert.Contains("uses: ./.github/workflows/_build-and-test.yml", Workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("needs: validate", Workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("LEGACY_DEPLOY_ENABLED", Workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("environment: legacy-production", Workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("id-token: write", Workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("docker push", Workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("gcloud auth", Workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("kustomize edit", Workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("git push", Workflow, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("GITOPS_PAT", Workflow, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MainWorkflow_PublishJobUsesLeastPrivilegeAndPublicLegacyDependencies()
+    public void MainWorkflow_UsesReadOnlyWorkflowPermissions()
     {
-        Assert.Contains("permissions:\n      contents: read\n      id-token: write", Workflow, StringComparison.Ordinal);
-        Assert.Contains("MALIEV-Co-Ltd/Legacy.Maliev.ServiceDefaults", Workflow, StringComparison.Ordinal);
-        Assert.Contains("bcab875a7f703d1d9c2d535479e93653720eb62d", Workflow, StringComparison.Ordinal);
-        Assert.Contains("MALIEV-Co-Ltd/Legacy.Maliev.CompatibilityContracts", Workflow, StringComparison.Ordinal);
-        Assert.Contains("95c62eb6209411f5aada443b315447a2f76ca0cd", Workflow, StringComparison.Ordinal);
-        Assert.Contains("actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0", Workflow, StringComparison.Ordinal);
-        Assert.DoesNotContain("MALIEV-Co-Ltd/Maliev.Aspire", Workflow, StringComparison.Ordinal);
+        Assert.Contains("permissions:\n  contents: read", Workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("id-token:", Workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("MALIEV-Co-Ltd/Maliev.MessagingContracts", Workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/checkout@v", Workflow, StringComparison.Ordinal);
     }
