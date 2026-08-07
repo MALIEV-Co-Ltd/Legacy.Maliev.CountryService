@@ -24,8 +24,7 @@ namespace Legacy.Maliev.CountryService.Data.Migrations
                     ISO2 = table.Column<string>(type: "character varying(2)", maxLength: 2, nullable: true),
                     ISO3 = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: true),
                     CreatedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    ModifiedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    xmin = table.Column<uint>(type: "xid", rowVersion: true, nullable: false)
+                    ModifiedDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
