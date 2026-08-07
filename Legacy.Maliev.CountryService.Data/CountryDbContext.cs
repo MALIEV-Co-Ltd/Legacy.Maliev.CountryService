@@ -21,7 +21,7 @@ public sealed class CountryDbContext(DbContextOptions<CountryDbContext> options)
         country.Property(entity => entity.CountryCode).HasMaxLength(30);
         country.Property(entity => entity.Iso2).HasColumnName("ISO2").HasMaxLength(2);
         country.Property(entity => entity.Iso3).HasColumnName("ISO3").HasMaxLength(3);
-        // SQL Server datetime values were imported into the legacy PostgreSQL schema as
+        // Legacy datetime values were imported into the PostgreSQL schema as
         // UTC wall-clock values (`timestamp without time zone`). Keep the provider mapping
         // explicit so Npgsql does not try to write UTC DateTime values to a timestamptz
         // column, and keep new defaults in the same UTC representation.

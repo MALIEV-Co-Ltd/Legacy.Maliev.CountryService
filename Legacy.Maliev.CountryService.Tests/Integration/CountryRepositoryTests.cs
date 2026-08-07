@@ -22,7 +22,7 @@ public sealed class CountryRepositoryTests : IAsyncLifetime
         await using var context = new CountryDbContext(options);
         await context.Database.MigrateAsync();
         var repository = new CountryRepository(context);
-        // Legacy SQL Server datetime values are stored as UTC wall-clock values in
+        // Legacy imported datetime values are stored as UTC wall-clock values in
         // PostgreSQL timestamp-without-time-zone columns. Npgsql requires an
         // unspecified DateTime kind at this boundary; the instant itself remains UTC.
         var utcNow = DateTime.UtcNow;
