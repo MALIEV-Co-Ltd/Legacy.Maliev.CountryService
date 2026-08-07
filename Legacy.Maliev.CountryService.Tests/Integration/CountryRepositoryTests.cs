@@ -22,6 +22,11 @@ public sealed class CountryRepositoryTests : IAsyncLifetime
         await using var context = new CountryDbContext(options);
         await context.Database.MigrateAsync();
         var repository = new CountryRepository(context);
+        // Legacy SQL Server datetime values are stored as UTC wall-clock values in
+        // PostgreSQL timestamp-without-time-zone columns. Npgsql requires an
+        // unspecified DateTime kind at this boundary; the instant itself remains UTC.
+        var utcNow = DateTime.UtcNow;
+        var storedUtcWallClock = DateTime.SpecifyKind(utcNow, DateTimeKind.Unspecified);
         var country = new Country
         {
             Name = "Thailand",
@@ -29,8 +34,8 @@ public sealed class CountryRepositoryTests : IAsyncLifetime
             CountryCode = "764",
             Iso2 = "TH",
             Iso3 = "THA",
-            CreatedDate = DateTime.UtcNow,
-            ModifiedDate = DateTime.UtcNow,
+            CreatedDate = storedUtcWallClock,
+            ModifiedDate = storedUtcWallClock,
         };
 
         await repository.AddAsync(country, CancellationToken.None);
@@ -40,6 +45,11 @@ public sealed class CountryRepositoryTests : IAsyncLifetime
         Assert.NotNull(loaded);
         Assert.Equal("Thailand", loaded.Name);
         Assert.Equal("TH", loaded.Iso2);
+        Assert.Equal(DateTimeKind.Unspecified, loaded.CreatedDate!.Value.Kind);
+        Assert.InRange(
+            (storedUtcWallClock - loaded.CreatedDate.Value).Duration(),
+            TimeSpan.Zero,
+            TimeSpan.FromTicks(9));
         Assert.Empty(context.ChangeTracker.Entries());
 
         var tracked = await repository.GetByIdForUpdateAsync(country.Id, CancellationToken.None);

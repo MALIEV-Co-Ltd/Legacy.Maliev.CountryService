@@ -31,5 +31,20 @@ public sealed class CountryPostgresConcurrencyMigrationTests
         var migrationSource = File.ReadAllText(Path.GetFullPath(migration));
 
         Assert.DoesNotContain("xmin = table.Column", migrationSource, StringComparison.Ordinal);
+
+        var timestampMigration = Path.Combine(
+            Path.GetDirectoryName(typeof(CountryPostgresConcurrencyMigrationTests).Assembly.Location)!,
+            "..", "..", "..", "..", "Legacy.Maliev.CountryService.Data", "Migrations",
+            "20260807135744_AlignUtcTimestampColumns.cs");
+        var timestampMigrationSource = File.ReadAllText(Path.GetFullPath(timestampMigration));
+
+        Assert.Contains(
+            "USING \"ModifiedDate\" AT TIME ZONE 'UTC'",
+            timestampMigrationSource,
+            StringComparison.Ordinal);
+        Assert.Contains(
+            "USING \"CreatedDate\" AT TIME ZONE 'UTC'",
+            timestampMigrationSource,
+            StringComparison.Ordinal);
     }
 }
