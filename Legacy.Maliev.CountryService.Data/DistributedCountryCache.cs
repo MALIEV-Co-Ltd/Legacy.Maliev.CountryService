@@ -24,7 +24,7 @@ public sealed class DistributedCountryCache(
                 ? null
                 : JsonSerializer.Deserialize<CountryResponse[]>(bytes, JsonOptions);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger?.LogWarning(exception, "Country cache read failed; falling back to PostgreSQL");
             return null;
@@ -45,7 +45,7 @@ public sealed class DistributedCountryCache(
                 new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(6) },
                 cancellationToken);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger?.LogWarning(exception, "Country cache write failed; continuing without cache");
         }
@@ -58,7 +58,7 @@ public sealed class DistributedCountryCache(
         {
             await distributedCache.RemoveAsync(AllCountriesKey, cancellationToken);
         }
-        catch (Exception exception)
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             logger?.LogWarning(exception, "Country cache invalidation failed");
         }
