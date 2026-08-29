@@ -25,5 +25,12 @@ public sealed class CountryModelCompatibilityTests
         Assert.Equal(30, entity.FindProperty(nameof(Country.CountryCode))!.GetMaxLength());
         Assert.Equal(2, entity.FindProperty(nameof(Country.Iso2))!.GetMaxLength());
         Assert.Equal(3, entity.FindProperty(nameof(Country.Iso3))!.GetMaxLength());
+
+        var created = entity.FindProperty(nameof(Country.CreatedDate))!;
+        var modified = entity.FindProperty(nameof(Country.ModifiedDate))!;
+        Assert.Equal("timestamp without time zone", created.GetColumnType());
+        Assert.Equal("timestamp without time zone", modified.GetColumnType());
+        Assert.Equal("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'", created.GetDefaultValueSql());
+        Assert.Equal("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'", modified.GetDefaultValueSql());
     }
 }
