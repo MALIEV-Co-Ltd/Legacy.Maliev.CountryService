@@ -20,7 +20,7 @@ public sealed class PublicationDependencyTests
         var jobs = (YamlMappingNode)document.Children[new YamlScalarNode("jobs")];
         var publish = (YamlMappingNode)jobs.Children[new YamlScalarNode("publish")];
         Assert.Equal("vars.LEGACY_DEPLOY_ENABLED == 'true'", Value(publish, "if"));
-        Assert.Equal("MALIEV-Co-Ltd/Legacy.Maliev.Workflows/.github/workflows/publish-image.yml@6e3bb55f5ff3ee2b69dd6b4aee6333777ba0ed36", Value(publish, "uses"));
+        Assert.Equal("MALIEV-Co-Ltd/Legacy.Maliev.Workflows/.github/workflows/publish-image.yml@dfea9b89226b6fc0c2885c4a7c4212497d846a89", Value(publish, "uses"));
         var inputs = (YamlMappingNode)publish.Children[new YamlScalarNode("with")];
         Assert.Equal("9c4ac9d44a08bcd0aa2088348790ab863814669c", Value(inputs, "legacy-service-defaults-ref"));
         Assert.Equal("78e48ffc4ee000df0510cba5e7c7a3c4c4d539d7", Value(inputs, "compatibility-contracts-ref"));
