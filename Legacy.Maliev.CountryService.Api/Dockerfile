@@ -2,18 +2,23 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 ENV GITHUB_ACTIONS=false
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+RUN git clone --filter=blob:none --no-checkout https://github.com/MALIEV-Co-Ltd/Legacy.Maliev.ServiceDefaults.git /dependencies/Legacy.Maliev.ServiceDefaults \
+    && git -C /dependencies/Legacy.Maliev.ServiceDefaults checkout d22f0e6f95254b10cf4fe891c8dce5df7c419f3f \
+    && git clone --filter=blob:none --no-checkout https://github.com/MALIEV-Co-Ltd/Legacy.Maliev.CompatibilityContracts.git /dependencies/Legacy.Maliev.CompatibilityContracts \
+    && git -C /dependencies/Legacy.Maliev.CompatibilityContracts checkout 78e48ffc4ee000df0510cba5e7c7a3c4c4d539d7
 COPY nuget.config .
-COPY .dependencies/ .dependencies/
 COPY Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj Legacy.Maliev.CountryService.Api/
 COPY Legacy.Maliev.CountryService.Application/Legacy.Maliev.CountryService.Application.csproj Legacy.Maliev.CountryService.Application/
 COPY Legacy.Maliev.CountryService.Domain/Legacy.Maliev.CountryService.Domain.csproj Legacy.Maliev.CountryService.Domain/
 COPY Legacy.Maliev.CountryService.Data/Legacy.Maliev.CountryService.Data.csproj Legacy.Maliev.CountryService.Data/
 RUN dotnet restore Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj \
-    -p:MalievWorkspaceRoot=/src/.dependencies
+    -p:MalievWorkspaceRoot=/dependencies
 COPY . .
 RUN dotnet publish Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj \
     --configuration Release --no-restore --output /app /p:UseAppHost=false \
-    -p:MalievWorkspaceRoot=/src/.dependencies
+    -p:MalievWorkspaceRoot=/dependencies
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
