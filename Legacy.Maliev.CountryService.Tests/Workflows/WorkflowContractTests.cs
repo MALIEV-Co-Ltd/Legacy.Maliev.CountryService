@@ -31,8 +31,8 @@ public sealed class WorkflowContractTests
     public void BuildAndTest_RejectsCommentedDependencySha()
     {
         AssertMutationRejected(
-            "ref: d22f0e6f95254b10cf4fe891c8dce5df7c419f3f",
-            "ref: main # d22f0e6f95254b10cf4fe891c8dce5df7c419f3f");
+            "ref: cfc8053d316c55353841092429985a9f76f17d8d",
+            "ref: main # cfc8053d316c55353841092429985a9f76f17d8d");
     }
 
     [Fact]
@@ -51,13 +51,14 @@ public sealed class WorkflowContractTests
         var publisher = File.ReadAllText(FindRepositoryFile(".github", "workflows", "publish-image.yml"));
 
         Assert.Contains("AddServiceDefaults()", program, StringComparison.Ordinal);
+        Assert.Contains("EnableRequestLogging = true", program, StringComparison.Ordinal);
         Assert.Contains("UseStandardMiddleware()", program, StringComparison.Ordinal);
         Assert.DoesNotContain("NativeLogging", program, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ref: d22f0e6f95254b10cf4fe891c8dce5df7c419f3f", Workflow, StringComparison.Ordinal);
-        Assert.Contains("legacy-service-defaults-ref: d22f0e6f95254b10cf4fe891c8dce5df7c419f3f", publisher, StringComparison.Ordinal);
+        Assert.Contains("ref: cfc8053d316c55353841092429985a9f76f17d8d", Workflow, StringComparison.Ordinal);
+        Assert.Contains("legacy-service-defaults-ref: cfc8053d316c55353841092429985a9f76f17d8d", publisher, StringComparison.Ordinal);
         Assert.Contains("context: .", publisher, StringComparison.Ordinal);
         Assert.Contains("git clone", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("checkout d22f0e6f95254b10cf4fe891c8dce5df7c419f3f", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("checkout cfc8053d316c55353841092429985a9f76f17d8d", dockerfile, StringComparison.Ordinal);
         Assert.DoesNotContain("COPY .dependencies/", dockerfile, StringComparison.Ordinal);
     }
 
@@ -227,7 +228,7 @@ internal static partial class WorkflowContractValidator
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["repository"] = "MALIEV-Co-Ltd/Legacy.Maliev.ServiceDefaults",
-                ["ref"] = "d22f0e6f95254b10cf4fe891c8dce5df7c419f3f",
+                ["ref"] = "cfc8053d316c55353841092429985a9f76f17d8d",
                 ["path"] = ".dependencies/Legacy.Maliev.ServiceDefaults",
                 ["persist-credentials"] = "false",
             });
