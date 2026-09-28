@@ -31,8 +31,8 @@ public sealed class WorkflowContractTests
     public void BuildAndTest_RejectsCommentedDependencySha()
     {
         AssertMutationRejected(
-            "ref: cfc8053d316c55353841092429985a9f76f17d8d",
-            "ref: main # cfc8053d316c55353841092429985a9f76f17d8d");
+            "ref: 5c5f9479313710fa576f83d3b396442997a2fcf4",
+            "ref: main # 5c5f9479313710fa576f83d3b396442997a2fcf4");
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class WorkflowContractTests
     }
 
     [Fact]
-    public void Source5ac_UsesVerifiedLoggingAndSelfContainedPublisherBuild()
+    public void Source5acAndF064_UseVerifiedLoggingAndSelfContainedPublisherBuild()
     {
         var program = File.ReadAllText(FindRepositoryFile("Legacy.Maliev.CountryService.Api", "Program.cs"));
         var dockerfile = File.ReadAllText(FindRepositoryFile("Legacy.Maliev.CountryService.Api", "Dockerfile"));
@@ -53,12 +53,13 @@ public sealed class WorkflowContractTests
         Assert.Contains("AddServiceDefaults()", program, StringComparison.Ordinal);
         Assert.Contains("EnableRequestLogging = true", program, StringComparison.Ordinal);
         Assert.Contains("UseStandardMiddleware()", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("UseExceptionHandler(", program, StringComparison.Ordinal);
         Assert.DoesNotContain("NativeLogging", program, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("ref: cfc8053d316c55353841092429985a9f76f17d8d", Workflow, StringComparison.Ordinal);
-        Assert.Contains("legacy-service-defaults-ref: cfc8053d316c55353841092429985a9f76f17d8d", publisher, StringComparison.Ordinal);
+        Assert.Contains("ref: 5c5f9479313710fa576f83d3b396442997a2fcf4", Workflow, StringComparison.Ordinal);
+        Assert.Contains("legacy-service-defaults-ref: 5c5f9479313710fa576f83d3b396442997a2fcf4", publisher, StringComparison.Ordinal);
         Assert.Contains("context: .", publisher, StringComparison.Ordinal);
         Assert.Contains("git clone", dockerfile, StringComparison.Ordinal);
-        Assert.Contains("checkout cfc8053d316c55353841092429985a9f76f17d8d", dockerfile, StringComparison.Ordinal);
+        Assert.Contains("checkout 5c5f9479313710fa576f83d3b396442997a2fcf4", dockerfile, StringComparison.Ordinal);
         Assert.DoesNotContain("COPY .dependencies/", dockerfile, StringComparison.Ordinal);
     }
 
@@ -228,7 +229,7 @@ internal static partial class WorkflowContractValidator
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["repository"] = "MALIEV-Co-Ltd/Legacy.Maliev.ServiceDefaults",
-                ["ref"] = "cfc8053d316c55353841092429985a9f76f17d8d",
+                ["ref"] = "5c5f9479313710fa576f83d3b396442997a2fcf4",
                 ["path"] = ".dependencies/Legacy.Maliev.ServiceDefaults",
                 ["persist-credentials"] = "false",
             });
