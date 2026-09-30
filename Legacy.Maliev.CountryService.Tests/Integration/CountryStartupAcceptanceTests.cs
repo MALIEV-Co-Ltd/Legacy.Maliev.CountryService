@@ -164,7 +164,7 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
                 using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
                 while (!deadline.IsCancellationRequested)
                 {
-                    if (process.HasExited) throw new InvalidOperationException("Country API exited before liveness: " + api.Output.Replace(connectionString, "[disposable connection]", StringComparison.Ordinal));
+                    if (process.HasExited) throw new InvalidOperationException($"Country API exited before liveness (exit code {process.ExitCode}; category StartupFailure).");
                     try
                     {
                         using var response = await api.Client.GetAsync("/countries/liveness", deadline.Token);
