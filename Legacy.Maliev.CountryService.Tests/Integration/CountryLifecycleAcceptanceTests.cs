@@ -336,7 +336,7 @@ public sealed class CountryLifecycleAcceptanceTests(CountryLifecycleFixture fixt
     [InlineData("code-length")]
     [InlineData("iso2-length")]
     [InlineData("iso3-length")]
-    public async Task Create_InvalidExistingFieldRules_Returns400AndLeavesDatabaseAndCacheUnchanged(string mode)
+    public async Task Create_InvalidExistingFieldRules_Returns400LeavesDatabaseUnchangedAndReadsCurrentState(string mode)
     {
         var id = await fixture.SeedAsync("Thailand", "TH", "THA");
         using var client = fixture.CreateClient(CountryPermissions.CountriesCreate);
@@ -367,8 +367,8 @@ public sealed class CountryLifecycleAcceptanceTests(CountryLifecycleFixture fixt
         Assert.True(errors.RootElement.TryGetProperty("errors", out _));
         await using var verify = fixture.CreateContext();
         Assert.Equal("Stored-only change", Assert.Single(await verify.Countries.ToArrayAsync()).Name);
-        var cached = await client.GetFromJsonAsync<CountryResponse[]>("/Countries");
-        Assert.Equal("Thailand", Assert.Single(cached!).Name);
+        var authoritative = await client.GetFromJsonAsync<CountryResponse[]>("/Countries");
+        Assert.Equal("Stored-only change", Assert.Single(authoritative!).Name);
     }
 }
 

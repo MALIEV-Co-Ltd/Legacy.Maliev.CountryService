@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Legacy.Maliev.CountryService.Application.Interfaces;
 using Legacy.Maliev.CountryService.Application.Services;
 using Legacy.Maliev.CountryService.Data;
+using Legacy.Maliev.CountryService.Api.Documentation;
 using Maliev.Aspire.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +17,8 @@ builder.AddStandardMiddleware(options => options.EnableRequestLogging = true);
 builder.AddStandardOpenApi(
     title: "Legacy MALIEV Country Service API",
     description: "Temporary .NET 10 compatibility service preserving the legacy Country API contract.");
+// Literal application-local registration enables the XML comment generator.
+builder.Services.AddOpenApi("v1", CountryOpenApi.Configure);
 
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
