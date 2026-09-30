@@ -23,12 +23,14 @@ public sealed class CountryDbContext(DbContextOptions<CountryDbContext> options)
         country.Property(entity => entity.Iso3).HasColumnName("ISO3").HasMaxLength(3);
         // Legacy datetime values were imported into the PostgreSQL schema as
         // UTC wall-clock values (`timestamp without time zone`). Keep the provider mapping
-        // explicit so Npgsql does not try to write UTC DateTime values to a timestamptz
-        // column, and keep new defaults in the same UTC representation.
+        // explicit and remove only the CLR Kind on writes: Npgsql requires Unspecified
+        // for this column type. Preserve wall-clock ticks and imported read semantics.
         country.Property(entity => entity.CreatedDate)
+            .HasConversion(value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Unspecified) : (DateTime?)null, value => value)
             .HasColumnType("timestamp without time zone")
             .HasDefaultValueSql("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
         country.Property(entity => entity.ModifiedDate)
+            .HasConversion(value => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Unspecified) : (DateTime?)null, value => value)
             .HasColumnType("timestamp without time zone")
             .HasDefaultValueSql("CURRENT_TIMESTAMP AT TIME ZONE 'UTC'");
         country.Property<uint>("xmin").HasColumnType("xid").IsRowVersion();
