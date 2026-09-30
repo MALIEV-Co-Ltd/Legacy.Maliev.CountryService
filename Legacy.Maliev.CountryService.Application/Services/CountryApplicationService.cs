@@ -13,17 +13,12 @@ public sealed class CountryApplicationService(
     /// <inheritdoc />
     public async Task<IReadOnlyList<CountryResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
-        var cached = await cache.GetAllAsync(cancellationToken);
-        if (cached is not null)
-        {
-            return cached;
-        }
-
+        // The small reference catalog is authoritative in PostgreSQL. A failed
+        // invalidation or a late cache fill must not hide acknowledged writes.
         var countries = (await repository.GetAllAsync(cancellationToken))
             .OrderBy(country => country.Name, StringComparer.Ordinal)
             .Select(ToResponse)
             .ToArray();
-        await cache.SetAllAsync(countries, cancellationToken);
         return countries;
     }
 
