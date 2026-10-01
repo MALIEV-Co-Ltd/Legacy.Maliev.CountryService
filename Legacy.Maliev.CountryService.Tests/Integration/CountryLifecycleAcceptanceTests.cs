@@ -8,8 +8,10 @@ using System.Text;
 using System.Text.Json;
 using Legacy.Maliev.CountryService.Api.Authorization;
 using Legacy.Maliev.CountryService.Application.Interfaces;
+using Legacy.Maliev.CountryService.Application.Exceptions;
 using Legacy.Maliev.CountryService.Application.Models;
 using Legacy.Maliev.CountryService.Data;
+using Maliev.Aspire.ServiceDefaults.IAM;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -119,8 +121,11 @@ public sealed class CountryLifecycleAcceptanceTests(CountryLifecycleFixture fixt
         using var invalidId = await client.PutAsJsonAsync("/Countries/0", new UpsertCountryRequest("Invalid", null, null, null, null));
         Assert.Equal(HttpStatusCode.NotFound, missingUpdate.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, invalidId.StatusCode);
-        using var deleted = await client.DeleteAsync($"/Countries/{created.Id}");
-        using var missingDelete = await client.DeleteAsync($"/Countries/{created.Id}");
+        await using var deleteFactory = fixture.CreateLiveDeleteFactory();
+        using var deleteClient = deleteFactory.CreateClient();
+        deleteClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", fixture.Token("valid", CountryPermissions.CountriesDelete));
+        using var deleted = await deleteClient.DeleteAsync($"/Countries/{created.Id}");
+        using var missingDelete = await deleteClient.DeleteAsync($"/Countries/{created.Id}");
         Assert.Equal(HttpStatusCode.NoContent, deleted.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, missingDelete.StatusCode);
         Assert.Empty((await client.GetFromJsonAsync<CountryResponse[]>("/country/v1/countries"))!);
@@ -170,13 +175,19 @@ public sealed class CountryLifecycleAcceptanceTests(CountryLifecycleFixture fixt
         winner.Name = "Winner";
         await winnerRepository.UpdateAsync(winner, CancellationToken.None);
         stale.Name = "Stale";
-        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => staleRepository.UpdateAsync(stale, CancellationToken.None));
+        var updateConflict = await Assert.ThrowsAsync<CountryConcurrencyException>(() => staleRepository.UpdateAsync(stale, CancellationToken.None));
+        var updateCause = Assert.IsType<DbUpdateConcurrencyException>(updateConflict.InnerException);
+        Assert.NotEmpty(updateCause.Entries);
+        Assert.All(updateCause.Entries, entry => Assert.IsType<Legacy.Maliev.CountryService.Domain.Country>(entry.Entity));
         await using var verify = fixture.CreateContext();
         Assert.Equal("Winner", (await verify.Countries.AsNoTracking().SingleAsync()).Name);
         staleContext.ChangeTracker.Clear();
         var staleDelete = (await staleRepository.GetByIdForUpdateAsync(id, CancellationToken.None))!;
         await winnerRepository.DeleteAsync(winner, CancellationToken.None);
-        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => staleRepository.DeleteAsync(staleDelete, CancellationToken.None));
+        var deleteConflict = await Assert.ThrowsAsync<CountryConcurrencyException>(() => staleRepository.DeleteAsync(staleDelete, CancellationToken.None));
+        var deleteCause = Assert.IsType<DbUpdateConcurrencyException>(deleteConflict.InnerException);
+        Assert.NotEmpty(deleteCause.Entries);
+        Assert.All(deleteCause.Entries, entry => Assert.IsType<Legacy.Maliev.CountryService.Domain.Country>(entry.Entity));
         Assert.Empty(await verify.Countries.AsNoTracking().ToArrayAsync());
     }
 
@@ -454,6 +465,21 @@ public sealed class CountryLifecycleFixture : IAsyncLifetime
     public HttpClient CreateAnonymousClient() => _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
     public WebApplicationFactory<Program> CreateDocumentationFactory() => _factory.WithWebHostBuilder(builder => builder.UseEnvironment("Testing"));
+
+    public WebApplicationFactory<Program> CreateLiveDeleteFactory()
+    {
+        var credential = Guid.NewGuid().ToString("N");
+        return _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("IAM:LivePermissionChecks:Credential", credential);
+            builder.ConfigureServices(services =>
+            {
+                services.AddScoped<IIamServiceClient, IamServiceClient>();
+                services.AddHttpClient("IAMService", client => client.BaseAddress = new Uri("https://controlled-iam.invalid"))
+                    .ConfigurePrimaryHttpMessageHandler(() => new CountryLifecycleLiveDeleteTransport(credential));
+            });
+        });
+    }
 
     public string Token(string mode, params string[] permissions)
     {

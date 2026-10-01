@@ -1,4 +1,5 @@
 using Legacy.Maliev.CountryService.Application.Interfaces;
+using Legacy.Maliev.CountryService.Application.Exceptions;
 using Legacy.Maliev.CountryService.Domain;
 using Microsoft.EntityFrameworkCore;
 
@@ -32,13 +33,31 @@ public sealed class CountryRepository(CountryDbContext dbContext) : ICountryRepo
     public async Task UpdateAsync(Country country, CancellationToken cancellationToken)
     {
         dbContext.Countries.Update(country);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception) when (
+            exception.Entries.Count > 0 && exception.Entries.All(entry => entry.Entity is Country))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new CountryConcurrencyException(exception);
+        }
     }
 
     /// <inheritdoc />
     public async Task DeleteAsync(Country country, CancellationToken cancellationToken)
     {
         dbContext.Countries.Remove(country);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception) when (
+            exception.Entries.Count > 0 && exception.Entries.All(entry => entry.Entity is Country))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            throw new CountryConcurrencyException(exception);
+        }
     }
 }
