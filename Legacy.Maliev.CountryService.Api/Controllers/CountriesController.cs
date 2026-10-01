@@ -1,5 +1,6 @@
 using Legacy.Maliev.CountryService.Api.Authorization;
 using Legacy.Maliev.CountryService.Application.Interfaces;
+using Legacy.Maliev.CountryService.Application.Exceptions;
 using Legacy.Maliev.CountryService.Application.Models;
 using Maliev.Aspire.ServiceDefaults.Authorization;
 using Microsoft.AspNetCore.Authorization;
@@ -65,18 +66,32 @@ public sealed class CountriesController(ICountryService countryService) : Contro
             return BadRequest();
         }
 
-        return await countryService.UpdateAsync(id, request, cancellationToken)
-            ? NoContent()
-            : NotFound();
+        try
+        {
+            return await countryService.UpdateAsync(id, request, cancellationToken)
+                ? NoContent()
+                : NotFound();
+        }
+        catch (CountryConcurrencyException)
+        {
+            return Conflict("The country changed during this request.");
+        }
     }
 
     /// <summary>Deletes a country.</summary>
     [HttpDelete("{id:int}")]
-    [RequirePermission(CountryPermissions.CountriesDelete)]
+    [RequirePermission(CountryPermissions.CountriesDelete, RequireLiveCheck = true, IsCritical = true)]
     public async Task<ActionResult> DeleteCountryAsync(int id, CancellationToken cancellationToken)
     {
-        return await countryService.DeleteAsync(id, cancellationToken)
-            ? NoContent()
-            : NotFound();
+        try
+        {
+            return await countryService.DeleteAsync(id, cancellationToken)
+                ? NoContent()
+                : NotFound();
+        }
+        catch (CountryConcurrencyException)
+        {
+            return Conflict("The country changed during this request.");
+        }
     }
 }
