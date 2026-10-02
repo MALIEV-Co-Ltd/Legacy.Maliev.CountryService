@@ -258,6 +258,7 @@ public sealed class CountryMutationBoundaryFixture : IAsyncLifetime
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("Production");
+            CountryTestWorkloadExchange.Prepare(builder);
             foreach (var pair in new Dictionary<string, string>
             {
                 ["ConnectionStrings:CountryDbContext"] = _postgres.GetConnectionString(),

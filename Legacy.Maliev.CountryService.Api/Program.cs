@@ -3,6 +3,7 @@ using Legacy.Maliev.CountryService.Application.Interfaces;
 using Legacy.Maliev.CountryService.Application.Services;
 using Legacy.Maliev.CountryService.Data;
 using Legacy.Maliev.CountryService.Api.Documentation;
+using Legacy.Maliev.CountryService.Api.Authorization;
 using Maliev.Aspire.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,7 @@ builder.AddPostgresDbContext<CountryDbContext>(connectionName: "CountryDbContext
 builder.AddStandardCache("legacy:country:");
 builder.AddStandardCors();
 builder.AddJwtAuthentication();
+builder.AddCountryIamComposition();
 builder.AddStandardMiddleware(options => options.EnableRequestLogging = true);
 builder.AddStandardOpenApi(
     title: "Legacy MALIEV Country Service API",

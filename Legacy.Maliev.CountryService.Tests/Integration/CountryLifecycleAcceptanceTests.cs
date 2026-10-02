@@ -472,6 +472,7 @@ public sealed class CountryLifecycleFixture : IAsyncLifetime
         return _factory.WithWebHostBuilder(builder =>
         {
             builder.UseSetting("IAM:LivePermissionChecks:Credential", credential);
+            CountryTestWorkloadExchange.Prepare(builder);
             builder.ConfigureServices(services =>
             {
                 services.AddScoped<IIamServiceClient, IamServiceClient>();
