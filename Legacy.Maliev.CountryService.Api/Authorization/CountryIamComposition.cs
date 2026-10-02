@@ -18,7 +18,15 @@ internal static class CountryIamComposition
         })
         .ConfigurePrimaryHttpMessageHandler(DisableRedirects)
         .RedactLoggedHeaders(["Authorization"])
-        .AddHttpMessageHandler<CountryWorkloadExchangeGuard>();
+        .AddHttpMessageHandler<CountryWorkloadExchangeGuard>()
+        .ConfigureAdditionalHttpMessageHandlers((handlers, _) =>
+        {
+            // Local contract rejection is not a transient network failure. Keep it
+            // outside inherited retry while preserving that policy for accepted requests.
+            var guard = handlers.OfType<CountryWorkloadExchangeGuard>().Single();
+            handlers.Remove(guard);
+            handlers.Insert(0, guard);
+        });
 
         builder.Services.AddScoped<IIamServiceClient, IamServiceClient>();
         builder.Services.AddHttpClient("IAMService", client =>
