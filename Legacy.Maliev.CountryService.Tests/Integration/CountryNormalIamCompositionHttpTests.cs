@@ -177,6 +177,23 @@ public sealed class CountryNormalIamCompositionHttpTests(CountryNormalIamFixture
     }
 
     [Fact]
+    public void WorkloadExchange_RequestGuardPrecedesRetryInActualNamedHandlerChain()
+    {
+        using var app = fixture.App(new());
+        using var bootstrap = app.CreateClient();
+        var handler = app.Services.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(LegacyServiceAccessTokenProvider.HttpClientName);
+        var chain = new List<Type>();
+        while (handler is DelegatingHandler delegating)
+        {
+            chain.Add(handler.GetType());
+            handler = delegating.InnerHandler!;
+        }
+        var guard = Assert.Single(chain, type => type.Name == "CountryWorkloadExchangeGuard");
+        var retry = Assert.Single(chain, type => type == typeof(Microsoft.Extensions.Http.Resilience.ResilienceHandler));
+        Assert.True(chain.IndexOf(guard) < chain.IndexOf(retry), "Local request rejection must occur before inherited transient retry.");
+    }
+
+    [Fact]
     public async Task WorkloadExchange_UnknownLengthOversizedBodyStopsAtActualByteBudget()
     {
         var boundary = new CountryNormalIamBoundary { Mode = "oversized-login" };
