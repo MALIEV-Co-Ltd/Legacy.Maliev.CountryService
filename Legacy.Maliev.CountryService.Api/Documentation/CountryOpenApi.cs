@@ -44,6 +44,13 @@ internal static class CountryOpenApi
         });
         options.AddSchemaTransformer((schema, context, cancellationToken) =>
         {
+            // Output identity is always a JSON integer; do not inherit input number coercion.
+            if (context.JsonTypeInfo.Type == typeof(CountryResponse) && schema.Properties is not null
+                && schema.Properties.TryGetValue("id", out var identity) && identity is OpenApiSchema countryId)
+            {
+                countryId.Type = JsonSchemaType.Integer;
+                countryId.Format = "int32";
+            }
             if (context.JsonTypeInfo.Type != typeof(UpsertCountryRequest) || schema.Properties is null)
                 return Task.CompletedTask;
             var required = new HashSet<string>();

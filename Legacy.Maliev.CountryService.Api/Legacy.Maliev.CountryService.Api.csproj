@@ -23,4 +23,16 @@
     <ProjectReference Include="..\Legacy.Maliev.CountryService.Data\Legacy.Maliev.CountryService.Data.csproj" />
   </ItemGroup>
 
+  <Target Name="IncludeCountryApplicationXmlComments"
+          AfterTargets="ResolveReferences" BeforeTargets="CoreCompile">
+    <ItemGroup>
+      <AdditionalFiles Include="@(ReferencePath->'%(RootDir)%(Directory)%(Filename).xml')"
+        Condition="'%(ReferencePath.Filename)' == 'Legacy.Maliev.CountryService.Application' AND
+                   '%(ReferencePath.Extension)' == '.dll' AND
+                   '%(ReferencePath.ReferenceSourceTarget)' == 'ProjectReference' AND
+                   Exists('%(ReferencePath.RootDir)%(ReferencePath.Directory)%(ReferencePath.Filename).xml')"
+        KeepMetadata="Identity" />
+    </ItemGroup>
+  </Target>
+
 </Project>
