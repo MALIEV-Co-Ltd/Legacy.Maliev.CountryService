@@ -129,9 +129,11 @@ public sealed class DisabledCountryDeploymentTests
         Assert.NotEqual(0, result.ExitCode);
         Assert.True(string.IsNullOrWhiteSpace(result.Output));
         var script = File.ReadAllText(Path.Combine(Root, "deploy", "Render-CountryDeployment.ps1"));
+        // The fixed registry hostname is data, not a Docker command. Keep all other source guarded.
+        var commandSource = script.Replace("asia-southeast1-docker\\.pkg\\.dev", string.Empty, StringComparison.Ordinal);
         foreach (var command in new[] { "kubectl", "gcloud", "docker", "Invoke-Expression", "Invoke-WebRequest", "Invoke-RestMethod" })
         {
-            Assert.DoesNotContain(command, script, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain(command, commandSource, StringComparison.OrdinalIgnoreCase);
         }
         Assert.False(Directory.Exists(Path.Combine(Root, "deploy", "disabled", "overlays")));
         Assert.False(File.Exists(Path.Combine(Root, "deploy", "disabled", "kustomization.yaml")));
