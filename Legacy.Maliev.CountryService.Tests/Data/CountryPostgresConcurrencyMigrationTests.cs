@@ -11,7 +11,7 @@ public sealed class CountryPostgresConcurrencyMigrationTests
     public void CountryConcurrencyUsesPostgreSqlSystemXminWithoutCreatingAUserColumn()
     {
         var options = new DbContextOptionsBuilder<CountryDbContext>()
-            .UseNpgsql("Host=localhost;Database=country;Username=test;Password=test")
+            .UseNpgsql("Host=localhost;Database=country;Username=test")
             .Options;
 
         using var context = new CountryDbContext(options);

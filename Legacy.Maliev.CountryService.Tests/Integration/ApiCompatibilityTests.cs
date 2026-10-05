@@ -18,7 +18,7 @@ public sealed class ApiCompatibilityTests
                 .UseEnvironment("Testing")
                 .UseSetting(
                     "ConnectionStrings:CountryDbContext",
-                    "Host=localhost;Database=unused;Username=unused;Password=unused")
+                    "Host=localhost;Database=unused;Username=unused")
                 .UseSetting("CORS:AllowedOrigins:0", "https://example.test")
                 .ConfigureServices(services =>
                 {
@@ -42,7 +42,7 @@ public sealed class ApiCompatibilityTests
                 .UseEnvironment("Testing")
                 .UseSetting(
                     "ConnectionStrings:CountryDbContext",
-                    "Host=localhost;Database=unused;Username=unused;Password=unused")
+                    "Host=localhost;Database=unused;Username=unused")
                 .UseSetting("CORS:AllowedOrigins:0", "https://example.test"));
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -62,7 +62,7 @@ public sealed class ApiCompatibilityTests
                 .UseEnvironment("Testing")
                 .UseSetting(
                     "ConnectionStrings:CountryDbContext",
-                    "Host=localhost;Database=unused;Username=unused;Password=unused")
+                    "Host=localhost;Database=unused;Username=unused")
                 .UseSetting("CORS:AllowedOrigins:0", "https://example.test")
                 .ConfigureServices(services =>
                 {
