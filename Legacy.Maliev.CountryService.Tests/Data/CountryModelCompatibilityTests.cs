@@ -11,7 +11,7 @@ public sealed class CountryModelCompatibilityTests
     public void CountryMapping_PreservesLegacyTableAndColumnContract()
     {
         var options = new DbContextOptionsBuilder<CountryDbContext>()
-            .UseNpgsql("Host=localhost;Database=unused;Username=unused;Password=unused")
+            .UseNpgsql("Host=localhost;Database=unused;Username=unused")
             .Options;
         using var context = new CountryDbContext(options);
 

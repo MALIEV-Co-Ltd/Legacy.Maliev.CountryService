@@ -103,7 +103,7 @@ public sealed class CountriesController(ICountryService countryService) : Contro
         [FromBody] UpsertCountryRequest request,
         CancellationToken cancellationToken)
     {
-        if (id <= 0)
+        if (id == 0)
         {
             return BadRequest();
         }
