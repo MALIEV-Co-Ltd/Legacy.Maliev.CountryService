@@ -60,7 +60,7 @@ jobs:
         run: python3 scripts/verify-source-parity-coverage.py source-parity-results
       - name: Preserve source parity receipts
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: country-source-parity-${{ github.sha }}
           path: source-parity-results
