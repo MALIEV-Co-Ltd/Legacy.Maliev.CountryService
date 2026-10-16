@@ -53,6 +53,35 @@ public sealed class CountriesControllerCompatibilityTests
         Assert.IsType<NotFoundResult>(result.Result);
     }
 
+    /// <summary>Preserves original direct-call null admission before country creation.</summary>
+    [Fact]
+    public async Task CreateCountryAsync_NullRequest_ReturnsOriginalEmptyBadRequestWithoutServiceCalls()
+    {
+        var service = new Mock<ICountryService>(MockBehavior.Strict);
+        var controller = new CountriesController(service.Object);
+
+        var result = await controller.CreateCountryAsync(null!, CancellationToken.None);
+
+        Assert.Equal(400, Assert.IsType<BadRequestResult>(result).StatusCode);
+        service.VerifyNoOtherCalls();
+    }
+
+    /// <summary>Preserves original direct-call null admission before any country lookup.</summary>
+    [Theory]
+    [InlineData(13)]
+    [InlineData(int.MaxValue)]
+    [InlineData(0)]
+    public async Task UpdateCountryAsync_NullRequest_ReturnsOriginalEmptyBadRequestBeforeLookup(int id)
+    {
+        var service = new Mock<ICountryService>(MockBehavior.Strict);
+        var controller = new CountriesController(service.Object);
+
+        var result = await controller.UpdateCountryAsync(id, null!, CancellationToken.None);
+
+        Assert.Equal(400, Assert.IsType<BadRequestResult>(result).StatusCode);
+        service.VerifyNoOtherCalls();
+    }
+
     [Fact]
     public async Task CreateCountryAsync_ValidRequest_ReturnsLegacyCreatedAtRoute()
     {

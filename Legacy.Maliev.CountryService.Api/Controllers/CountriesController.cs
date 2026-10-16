@@ -75,6 +75,11 @@ public sealed class CountriesController(ICountryService countryService) : Contro
         [FromBody] UpsertCountryRequest request,
         CancellationToken cancellationToken)
     {
+        if (request is null)
+        {
+            return BadRequest();
+        }
+
         var created = await countryService.CreateAsync(request, cancellationToken);
         return CreatedAtRoute("GetCountry", new { id = created.Id }, created);
     }
@@ -103,7 +108,7 @@ public sealed class CountriesController(ICountryService countryService) : Contro
         [FromBody] UpsertCountryRequest request,
         CancellationToken cancellationToken)
     {
-        if (id == 0)
+        if (request is null || id == 0)
         {
             return BadRequest();
         }
