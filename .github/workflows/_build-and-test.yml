@@ -31,33 +31,8 @@ jobs:
           ref: 78e48ffc4ee000df0510cba5e7c7a3c4c4d539d7
           path: .dependencies/Legacy.Maliev.CompatibilityContracts
           persist-credentials: false
-      - name: Set up .NET for country compatibility focus
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68
-        with:
-          dotnet-version: 10.0.x
-      - name: Build country compatibility tests
-        run: >-
-          GITHUB_ACTIONS=false dotnet build
-          Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj
-          --configuration Release --warnaserror
-      - name: Verify original null admission before the full suite
-        run: >-
-          GITHUB_ACTIONS=false dotnet test
-          Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj
-          --configuration Release --no-build --no-restore
-          -p:CI=false -p:VSTestCollect= -p:RunSettingsFilePath=
-          --filter "FullyQualifiedName~CountriesControllerCompatibilityTests"
-          --logger trx --results-directory ./country-null-admission-test-results
       - name: Validate .NET solution
         uses: MALIEV-Co-Ltd/Legacy.Maliev.Workflows/actions/dotnet-validate@73dd7304ffe85ec504389fd7664cc39070b9f148
         with:
           solution: Legacy.Maliev.CountryService.slnx
           use-local-maliev-dependencies: 'true'
-      - name: Preserve country compatibility focused results
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: country-null-admission-${{ github.sha }}
-          path: country-null-admission-test-results/**/*.trx
-          retention-days: 7
-          if-no-files-found: error
