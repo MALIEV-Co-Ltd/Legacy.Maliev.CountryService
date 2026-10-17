@@ -47,6 +47,7 @@ static async Task RunHostAsync(string[] startupArgs)
     builder.Services.AddControllers().AddJsonOptions(options =>
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
     builder.Services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(CountryRequestJsonOptions.Configure);
+    builder.Services.ConfigureOptions<CountryOriginalBodyMvcOptionsSetup>();
     builder.Services.AddSingleton(TimeProvider.System);
     builder.Services.AddScoped<ICountryRepository, CountryRepository>();
     builder.Services.AddScoped<ICountryCache, DistributedCountryCache>();
