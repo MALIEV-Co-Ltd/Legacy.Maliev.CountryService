@@ -625,8 +625,13 @@ public sealed class CountryNormalIamCompositionHttpTests(CountryNormalIamFixture
         using var client = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient("IAMService");
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://country40-iam.invalid/iam/v1/auth/check-permission")
         {
-            Content = JsonContent.Create(new { principalId = "employee:country40", permissionId = "legacy-country.countries.delete",
-                resourcePath = "global", bypassCache = true })
+            Content = JsonContent.Create(new
+            {
+                principalId = "employee:country40",
+                permissionId = "legacy-country.countries.delete",
+                resourcePath = "global",
+                bypassCache = true
+            })
         };
         request.Headers.Add("X-Maliev-IAM-Live-Check-Key", boundary.ExpectedCredential);
         request.Options.Set(new HttpRequestOptionsKey<bool>("Maliev.DependencyFailureOwnedByCaller"), true);
