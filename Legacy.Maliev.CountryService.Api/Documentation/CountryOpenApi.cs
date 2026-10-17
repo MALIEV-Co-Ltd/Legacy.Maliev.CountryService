@@ -1,8 +1,11 @@
 using System.ComponentModel.DataAnnotations;
 using System.Reflection;
 using System.Text.Json;
+using Legacy.Maliev.CountryService.Api.Controllers;
 using Legacy.Maliev.CountryService.Application.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
 
@@ -40,6 +43,30 @@ internal static class CountryOpenApi
             var metadata = context.Description.ActionDescriptor.EndpointMetadata;
             if (!metadata.OfType<IAllowAnonymous>().Any() && metadata.OfType<IAuthorizeData>().Any())
                 operation.Security = [new OpenApiSecurityRequirement()];
+
+            // This native Int32 path identity is not a JSON body number-coercion contract.
+            if (context.Description.ActionDescriptor is ControllerActionDescriptor action
+                && action.ControllerTypeInfo.AsType() == typeof(CountriesController)
+                && ((context.Description.HttpMethod == "GET" && action.MethodInfo.Name == nameof(CountriesController.GetCountryAsync))
+                    || (context.Description.HttpMethod == "PUT" && action.MethodInfo.Name == nameof(CountriesController.UpdateCountryAsync))
+                    || (context.Description.HttpMethod == "DELETE" && action.MethodInfo.Name == nameof(CountriesController.DeleteCountryAsync)))
+                && context.Description.ParameterDescriptions.Any(parameter => parameter.Name == "id"
+                    && parameter.Source == BindingSource.Path
+                    && parameter.ParameterDescriptor is ControllerParameterDescriptor native
+                    && native.ParameterInfo.Name == "id" && native.ParameterInfo.ParameterType == typeof(int)
+                    && native.ParameterInfo.Member.Equals(action.MethodInfo))
+                && operation.Parameters is not null)
+            {
+                foreach (var parameter in operation.Parameters)
+                {
+                    if (parameter.Name == "id" && parameter.In == ParameterLocation.Path
+                        && parameter.Schema is OpenApiSchema identity)
+                    {
+                        identity.Type = JsonSchemaType.Integer;
+                        identity.Format = "int32";
+                    }
+                }
+            }
             return Task.CompletedTask;
         });
         options.AddSchemaTransformer((schema, context, cancellationToken) =>
