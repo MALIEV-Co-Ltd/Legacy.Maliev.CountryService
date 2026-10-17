@@ -43,6 +43,44 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
             Assert.Equal("TH", country.GetProperty("iso2").GetString());
         }
 
+        // The same already-running child exercises real Kestrel and the selected console.
+        const string probeId = "aaaaaaaa222233334444555555555555";
+        using (var probe = new HttpRequestMessage(HttpMethod.Get, "/internal/diagnostics/observability?token=country67-native-private"))
+        {
+            probe.Headers.Add("X-Maliev-Diagnostic-Id", probeId);
+            probe.Headers.Add("Authorization", "Bearer country67-native-private");
+            using var controlled = await api.Client.SendAsync(probe);
+            Assert.Equal(HttpStatusCode.InternalServerError, controlled.StatusCode);
+            Assert.Equal("application/problem+json", controlled.Content.Headers.ContentType?.MediaType);
+            Assert.Equal(string.Empty, await controlled.Content.ReadAsStringAsync());
+            Assert.Equal("no-store", controlled.Headers.CacheControl?.ToString());
+            Assert.Equal("noindex", Assert.Single(controlled.Headers.GetValues("X-Robots-Tag")));
+            Assert.Equal(probeId, Assert.Single(controlled.Headers.GetValues("X-Maliev-Diagnostic-Id")));
+            Assert.False(controlled.Headers.Contains("X-Maliev-Health-Instance"));
+        }
+        await api.WaitForProbeCriticalAsync(probeId);
+        var probeEvents = api.ProbeEvents(probeId);
+        Assert.Equal(new[] { "WARNING", "ERROR", "CRITICAL" },
+            probeEvents.Select(entry => entry.GetProperty("severity").GetString()));
+        Assert.Equal("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware",
+            probeEvents[1].GetProperty("Category").GetString());
+        Assert.DoesNotContain("country67-native-private", api.Output, StringComparison.Ordinal);
+        using (var repeat = new HttpRequestMessage(HttpMethod.Get, "/internal/diagnostics/observability"))
+        {
+            repeat.Headers.Add("X-Maliev-Diagnostic-Id", "bbbbbbbb222233334444555555555555");
+            using var limited = await api.Client.SendAsync(repeat);
+            Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+            Assert.Equal("no-store", limited.Headers.CacheControl?.ToString());
+            Assert.Equal("noindex", Assert.Single(limited.Headers.GetValues("X-Robots-Tag")));
+            Assert.False(limited.Headers.Contains("X-Maliev-Diagnostic-Id"));
+        }
+        using (var ordinary = await api.Client.GetAsync("/Countries"))
+        {
+            Assert.Equal(HttpStatusCode.OK, ordinary.StatusCode);
+            Assert.False(ordinary.Headers.Contains("X-Maliev-Diagnostic-Id"));
+            Assert.False(ordinary.Headers.Contains("X-Maliev-Health-Instance"));
+        }
+
         // Anonymous write must fail before the real database is touched.
         using (var denied = await api.Client.PostAsync("/Countries", new StringContent("{}", System.Text.Encoding.UTF8, "application/json")))
         {
@@ -206,6 +244,18 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
             && state.ValueKind == JsonValueKind.Object
             && state.TryGetProperty("EventName", out var name)
             && name.GetString() == "UnhandledRequestFailure");
+
+        public Task<JsonElement> WaitForProbeCriticalAsync(string nonce) => WaitForLogAsync(entry =>
+            entry.TryGetProperty("DiagnosticId", out var id) && id.GetString() == nonce
+            && entry.TryGetProperty("EventName", out var name) && name.GetString() == "UnhandledRequestFailure"
+            && entry.GetProperty("severity").GetString() == "CRITICAL");
+
+        public JsonElement[] ProbeEvents(string nonce) => _output.Where(line => line.StartsWith('{')).Select(line =>
+        {
+            using var json = JsonDocument.Parse(line);
+            return json.RootElement.Clone();
+        }).Where(entry => entry.TryGetProperty("DiagnosticId", out var id) && id.GetString() == nonce
+            && entry.TryGetProperty("Synthetic", out var synthetic) && synthetic.ValueKind == JsonValueKind.True).ToArray();
 
         private async Task<JsonElement> WaitForLogAsync(Func<JsonElement, bool> matches)
         {
