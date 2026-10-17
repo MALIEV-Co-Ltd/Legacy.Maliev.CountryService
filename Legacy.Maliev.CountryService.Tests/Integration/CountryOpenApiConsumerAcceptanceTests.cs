@@ -164,7 +164,9 @@ public sealed class CountryOpenApiConsumerAcceptanceTests(CountryLifecycleFixtur
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(id, body.RootElement.GetProperty("id").GetInt32());
         using var noninteger = await client.GetAsync("/Countries/not-an-integer");
-        Assert.Equal(HttpStatusCode.NotFound, noninteger.StatusCode);
+        // Original 5fac706a7983a6d359b39acbd670e6800afe020e controller blob 2ebceeee7ed09231019758d69843f5ebcc77f7bc
+        // (also inherited at 72eb9f1949176392141951d35e6e06f7c30af4c2) uses {id} + int: native binding400, not constraint404.
+        Assert.Equal(HttpStatusCode.BadRequest, noninteger.StatusCode);
         using var document = await DocumentAsync();
         var parameter = Assert.Single(Operation(document, "/Countries/{id}", "get").GetProperty("parameters")
             .EnumerateArray(), value => value.GetProperty("name").GetString() == "id");
