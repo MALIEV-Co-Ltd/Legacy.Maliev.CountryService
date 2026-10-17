@@ -51,8 +51,15 @@ public sealed class CountryNormalIamCompositionHttpTests(CountryNormalIamFixture
         var before = JsonSerializer.Serialize(await beforeContext.Countries.AsNoTracking().OrderBy(value => value.Id)
             .Select(value => new
             {
-                value.Id, value.Name, value.Continent, value.CountryCode, value.Iso2, value.Iso3,
-                value.CreatedDate, value.ModifiedDate, Version = EF.Property<uint>(value, "xmin")
+                value.Id,
+                value.Name,
+                value.Continent,
+                value.CountryCode,
+                value.Iso2,
+                value.Iso3,
+                value.CreatedDate,
+                value.ModifiedDate,
+                Version = EF.Property<uint>(value, "xmin")
             }).ToArrayAsync());
         foreach (var (peer, expected) in new[] { ("203.0.113.5", 404), ("127.0.0.1", 500), ("127.0.0.1", 429) })
         {
@@ -74,8 +81,15 @@ public sealed class CountryNormalIamCompositionHttpTests(CountryNormalIamFixture
         var after = JsonSerializer.Serialize(await afterContext.Countries.AsNoTracking().OrderBy(value => value.Id)
             .Select(value => new
             {
-                value.Id, value.Name, value.Continent, value.CountryCode, value.Iso2, value.Iso3,
-                value.CreatedDate, value.ModifiedDate, Version = EF.Property<uint>(value, "xmin")
+                value.Id,
+                value.Name,
+                value.Continent,
+                value.CountryCode,
+                value.Iso2,
+                value.Iso3,
+                value.CreatedDate,
+                value.ModifiedDate,
+                Version = EF.Property<uint>(value, "xmin")
             }).ToArrayAsync());
         Assert.Equal(before, after);
         Assert.Equal(marker, await cache.GetAsync(cacheKey));
