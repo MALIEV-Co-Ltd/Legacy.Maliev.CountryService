@@ -90,8 +90,16 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
         Assert.True(DateTimeOffset.TryParse(state.GetProperty("OccurredAtUtc").GetString(), out var occurred));
         Assert.Equal(TimeSpan.Zero, occurred.Offset);
         Assert.Contains("11111111111111111111111111111111", incident.GetRawText(), StringComparison.Ordinal);
-        var completion = await failingApi.WaitForFailureCompletionAsync();
-        Assert.Equal("Countries", completion.GetProperty("State").GetProperty("Path").GetString()!.Trim('/'));
+        // The source-selected console is Warning+; shared request completions remain Information.
+        // Drain the exact child output after the real request, not a sleep-only absence check.
+        await failingApi.StopAndDrainAsync();
+        foreach (var line in failingApi.Output.Split('\n').Where(line => line.StartsWith('{')))
+        {
+            using var logged = JsonDocument.Parse(line);
+            Assert.Contains(logged.RootElement.GetProperty("LogLevel").GetString(), new[] { "Warning", "Error", "Critical" });
+            Assert.Equal("Application diagnostic; see event, exception and trace metadata",
+                logged.RootElement.GetProperty("Message").GetString());
+        }
         Assert.DoesNotContain(privateMarker, failingApi.Output, StringComparison.Ordinal);
         Assert.DoesNotContain("does not exist", incident.GetRawText(), StringComparison.Ordinal);
     }
@@ -102,6 +110,9 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
         private readonly ConcurrentQueue<string> _output = new();
         private readonly string _contentRoot;
         private bool _started;
+        private bool _stopped;
+        private readonly TaskCompletionSource _stdoutClosed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _stderrClosed = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public HttpClient Client { get; }
         public string Output => string.Join('\n', _output);
 
@@ -110,8 +121,16 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
             _process = process;
             _contentRoot = contentRoot;
             Client = new HttpClient { BaseAddress = new Uri($"http://127.0.0.1:{port}"), Timeout = TimeSpan.FromSeconds(15) };
-            process.OutputDataReceived += (_, args) => { if (args.Data is not null) _output.Enqueue(args.Data); };
-            process.ErrorDataReceived += (_, args) => { if (args.Data is not null) _output.Enqueue(args.Data); };
+            process.OutputDataReceived += (_, args) =>
+            {
+                if (args.Data is not null) _output.Enqueue(args.Data);
+                else _stdoutClosed.TrySetResult();
+            };
+            process.ErrorDataReceived += (_, args) =>
+            {
+                if (args.Data is not null) _output.Enqueue(args.Data);
+                else _stderrClosed.TrySetResult();
+            };
         }
 
         public static async Task<ApiProcess> StartAsync(string connectionString)
@@ -188,13 +207,6 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
             && state.TryGetProperty("EventName", out var name)
             && name.GetString() == "UnhandledRequestFailure");
 
-        public Task<JsonElement> WaitForFailureCompletionAsync() => WaitForLogAsync(entry =>
-            entry.GetProperty("Category").GetString() == "Maliev.Aspire.ServiceDefaults.Middleware.RequestLoggingMiddleware"
-            && entry.TryGetProperty("State", out var state)
-            && state.ValueKind == JsonValueKind.Object
-            && state.TryGetProperty("StatusCode", out var status)
-            && status.GetInt32() == 500);
-
         private async Task<JsonElement> WaitForLogAsync(Func<JsonElement, bool> matches)
         {
             using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -210,16 +222,27 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
             throw new TimeoutException("Expected Country native log event was not emitted.");
         }
 
+        public async Task StopAndDrainAsync()
+        {
+            if (!_started || _stopped) return;
+            if (!_process.HasExited) _process.Kill();
+            await _process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+            await Task.WhenAll(_stdoutClosed.Task, _stderrClosed.Task).WaitAsync(TimeSpan.FromSeconds(10));
+            _stopped = true;
+        }
+
         public async ValueTask DisposeAsync()
         {
             Client.Dispose();
-            if (_started && !_process.HasExited)
+            try
             {
-                _process.Kill(entireProcessTree: true);
-                await _process.WaitForExitAsync();
+                await StopAndDrainAsync();
             }
-            _process.Dispose();
-            Directory.Delete(_contentRoot, recursive: true);
+            finally
+            {
+                _process.Dispose();
+                Directory.Delete(_contentRoot, recursive: true);
+            }
         }
     }
 }
