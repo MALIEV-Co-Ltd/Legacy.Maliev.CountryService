@@ -139,7 +139,7 @@ public sealed class CountryObservabilityProbeTests
         await using var factory = new ProbeFactory();
         using var bootstrap = factory.CreateClient();
         var responses = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => SendAsync(factory)));
-        Assert.Single(responses.Where(response => response.Response.StatusCode == 500));
+        Assert.Single(responses, response => response.Response.StatusCode == 500);
         Assert.Equal(7, responses.Count(response => response.Response.StatusCode == 429));
         Assert.Equal(3, Events(factory).Length);
     }
