@@ -53,6 +53,9 @@ internal static class CountryOpenApi
             }
             if (context.JsonTypeInfo.Type != typeof(UpsertCountryRequest) || schema.Properties is null)
                 return Task.CompletedTask;
+            // Setter-only identity/audit checks are not public DTO fields.
+            foreach (var discarded in new[] { "id", "createdDate", "modifiedDate" })
+                schema.Properties.Remove(discarded);
             var required = new HashSet<string>();
             var constructor = typeof(UpsertCountryRequest).GetConstructors().Single();
             foreach (var parameter in constructor.GetParameters())
