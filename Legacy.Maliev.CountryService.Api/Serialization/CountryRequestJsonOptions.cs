@@ -9,10 +9,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Legacy.Maliev.CountryService.Api.Serialization;
 
-/// <summary>Registers source-compatible readers only for the five consumed country request strings.</summary>
+/// <summary>Registers request-local readers without granting discarded inputs write authority.</summary>
 public static class CountryRequestJsonOptions
 {
-    /// <summary>Preserves native MVC traversal and validation while adapting the existing request's string properties.</summary>
+    /// <summary>Preserves native MVC traversal and validation while adapting only the existing country request's input metadata.</summary>
     /// <param name="options">The existing MVC JSON options.</param>
     public static void Configure(JsonOptions options)
     {
@@ -62,8 +62,68 @@ internal sealed class CountryRequestJsonResolver(IJsonTypeInfoResolver inner) : 
         }
         if (configured != Fields.Length)
             throw new InvalidOperationException("Exactly five consumed country properties are required.");
+        AddDiscarded(metadata, options, "Id", new CountryDiscardedScalarReader(integer: true));
+        AddDiscarded(metadata, options, "CreatedDate", new CountryDiscardedScalarReader(integer: false));
+        AddDiscarded(metadata, options, "ModifiedDate", new CountryDiscardedScalarReader(integer: false));
         return metadata;
     }
+
+    private static void AddDiscarded(JsonTypeInfo metadata, JsonSerializerOptions options,
+        string name, JsonConverter converter)
+    {
+        var property = metadata.CreateJsonPropertyInfo(typeof(object),
+            options.PropertyNamingPolicy?.ConvertName(name) ?? name);
+        property.CustomConverter = converter;
+        property.Set = static (_, _) => { };
+        property.ShouldSerialize = static (_, _) => false;
+        metadata.Properties.Add(property);
+    }
+}
+
+internal sealed class CountryDiscardedScalarReader(bool integer) : JsonConverter<object>
+{
+    public override bool HandleNull => true;
+
+    public override object? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        // Validate each occurrence independently. Never retain identity/audit inputs or replay the request body.
+        string scalar;
+        switch (reader.TokenType)
+        {
+            case JsonTokenType.Null:
+                scalar = "null";
+                break;
+            case JsonTokenType.String:
+                scalar = JsonSerializer.Serialize(reader.GetString());
+                break;
+            case JsonTokenType.Number:
+                scalar = reader.HasValueSequence
+                    ? Encoding.UTF8.GetString(reader.ValueSequence.ToArray())
+                    : Encoding.UTF8.GetString(reader.ValueSpan);
+                break;
+            default:
+                throw new JsonException("Expected a compatible country identity or audit scalar.");
+        }
+        try
+        {
+            using var text = new StringReader(scalar);
+            using var source = new Newtonsoft.Json.JsonTextReader(text)
+            {
+                Culture = CultureInfo.InvariantCulture,
+            };
+            if (integer) _ = source.ReadAsInt32();
+            else _ = source.ReadAsDateTime();
+        }
+        catch (Exception error) when (error is Newtonsoft.Json.JsonException or ArgumentException or OverflowException)
+        {
+            // Source reader errors can contain private values; the native serializer attaches the real path.
+            throw new JsonException("Expected a compatible country identity or audit scalar.");
+        }
+        return null;
+    }
+
+    public override void Write(Utf8JsonWriter writer, object value, JsonSerializerOptions options)
+        => throw new NotSupportedException("Discarded country inputs have no output representation.");
 }
 
 internal sealed class CountryConsumedStringReader : JsonConverter<string>
