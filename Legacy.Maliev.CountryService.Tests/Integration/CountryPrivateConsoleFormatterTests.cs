@@ -427,6 +427,7 @@ public sealed class CountryPrivateConsoleFormatterTests
                 ["ConnectionStrings:CountryDbContext"] = "Host=127.0.0.1;Port=1;Database=country65;Username=fixture",
                 ["Cache:RedisEnabled"] = "false",
                 ["CORS:AllowedOrigins:0"] = "https://country65.invalid",
+                ["Logging:LogLevel:Country65.Acceptance"] = "Information",
                 ["Jwt:PublicKey"] = Convert.ToBase64String(Encoding.UTF8.GetBytes(_key.ExportSubjectPublicKeyInfoPem())),
                 ["Jwt:Issuer"] = "country65",
                 ["Jwt:Audience"] = "country65",
