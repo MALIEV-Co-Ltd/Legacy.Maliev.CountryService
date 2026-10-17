@@ -279,11 +279,24 @@ public sealed class CountryOriginalBodyBoundaryTests
     public async Task CompleteOuterReader_UsesSourceDepthForUnknownContent(int depth)
     {
         var json = "{\"Name\":\"Thailand\",\"unknown\":" + new string('[', depth) + "0" + new string(']', depth) + "}";
+        if (depth == 34)
+        {
+            // Actual stock MVC raises this unexpected error while recovering
+            // from the over-depth unknown value. Do not invent a blanket400.
+            var sourceError = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSourceAsync(json));
+            var candidateError = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadCandidateAsync(json));
+            Assert.Equal("Current error context error is different to requested error.", sourceError.Message);
+            Assert.Equal(sourceError.Message, candidateError.Message);
+            Assert.Equal(InputFormatterExceptionPolicy.MalformedInputExceptions,
+                Assert.IsAssignableFrom<IInputFormatterExceptionPolicy>(Candidate()).ExceptionPolicy);
+            return;
+        }
         var source = await ReadSourceAsync(json);
         var candidate = await ReadCandidateAsync(json);
-        Assert.Equal(depth > 32, source.Result!.HasError);
-        Assert.Equal(source.Result.HasError, candidate.Result!.HasError);
-        if (!source.Result.HasError) Assert.Equal("Thailand", Assert.IsType<UpsertCountryRequest>(candidate.Result.Model).Name);
+        Assert.False(source.Result.HasError);
+        Assert.Equal("Thailand", Assert.IsType<SourceCountry>(source.Result.Model).Name);
+        Assert.False(candidate.Result.HasError);
+        Assert.Equal("Thailand", Assert.IsType<UpsertCountryRequest>(candidate.Result.Model).Name);
     }
 
     [Fact]
