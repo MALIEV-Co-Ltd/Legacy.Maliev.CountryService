@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -111,6 +112,13 @@ public sealed class CountryRequestHttpTests(CountryLifecycleFixture fixture)
         var id = await fixture.SeedAsync("Before", "TH", "THA");
         var before = await SnapshotAsync();
         using var client = fixture.CreateClient(CountryPermissions.CountriesCreate, CountryPermissions.CountriesUpdate);
+        if (json == "{\"name\":\"Thailand\"} {}")
+        {
+            // Preserve this existing case identity, but use the source MVC outer
+            // contract rather than JsonConvert's different additional-content default.
+            await AssertSourceFirstObjectAsync(id, client, json);
+            return;
+        }
         foreach (var method in new[] { "POST", "PUT" })
         {
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -173,6 +181,68 @@ public sealed class CountryRequestHttpTests(CountryLifecycleFixture fixture)
         Assert.Equal(3, properties["iso3"]!["maxLength"]!.GetValue<int>());
         Assert.Contains(candidateSchema["required"]!.AsArray(), value => value!.GetValue<string>() == "name");
     }
+
+    private async Task AssertSourceFirstObjectAsync(int id, HttpClient client, string json)
+    {
+        var source = await CountryOriginalBodyHttpTests.SourceAsync(json);
+        Assert.False(source.HasError);
+        Assert.Equal("Thailand", Assert.IsType<CountryOriginalBodyBoundaryTests.SourceCountry>(source.Model).Name);
+        using var documentation = fixture.CreateDocumentationFactory();
+        using var documentationClient = documentation.CreateClient();
+        var options = documentation.Services.GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions;
+        Assert.Throws<System.Text.Json.JsonException>(() => JsonSerializer.Deserialize<UpsertCountryRequest>(json, options));
+        var cache = documentation.Services.GetRequiredService<Microsoft.Extensions.Caching.Distributed.IDistributedCache>();
+        const string key = "legacy:country:all:v1";
+        byte[] marker = [4, 3, 2];
+        var original = Assert.Single(await VersionedSnapshotAsync());
+        CountryRowVersion? createdByPost = null;
+        using var reader = fixture.CreateClient(CountryPermissions.CountriesRead);
+        foreach (var method in new[] { "POST", "PUT" })
+        {
+            await Microsoft.Extensions.Caching.Distributed.DistributedCacheExtensions.SetAsync(cache, key, marker);
+            using var content = new StringContent(json, Encoding.UTF8, "application/json");
+            using var response = method == "POST" ? await client.PostAsync("/Countries", content) : await client.PutAsync($"/Countries/{id}", content);
+            Assert.Equal(method == "POST" ? HttpStatusCode.Created : HttpStatusCode.NoContent, response.StatusCode);
+            var rows = await VersionedSnapshotAsync();
+            Assert.Equal(2, rows.Length);
+            var changed = method == "POST" ? Assert.Single(rows, value => value.Country.Id != id) : Assert.Single(rows, value => value.Country.Id == id);
+            Assert.Equal("Thailand", changed.Country.Name);
+            Assert.Null(changed.Country.Continent);
+            Assert.Null(changed.Country.CountryCode);
+            Assert.Null(changed.Country.Iso2);
+            Assert.Null(changed.Country.Iso3);
+            Assert.True(changed.Country.ModifiedDate.HasValue && changed.Country.ModifiedDate.Value.Year > 2000);
+            Assert.Null(await cache.GetAsync(key));
+            if (method == "POST")
+            {
+                createdByPost = changed;
+                Assert.Equal(original, Assert.Single(rows, value => value.Country.Id == id));
+                Assert.True(changed.Country.Id > 0);
+                Assert.True(changed.Country.CreatedDate.HasValue && changed.Country.CreatedDate.Value.Year > 2000);
+                Assert.EndsWith($"/Countries/{changed.Country.Id}", response.Headers.Location!.ToString(), StringComparison.Ordinal);
+            }
+            else
+            {
+                Assert.Equal(original.Country.CreatedDate, changed.Country.CreatedDate);
+                Assert.NotEqual(original.Version, changed.Version);
+                Assert.Equal(createdByPost, Assert.Single(rows, value => value.Country.Id != id));
+            }
+            using var detail = await reader.GetAsync($"/Countries/{changed.Country.Id}");
+            Assert.Equal(HttpStatusCode.OK, detail.StatusCode);
+            Assert.Equal(changed.Country, await detail.Content.ReadFromJsonAsync<CountryResponse>());
+        }
+    }
+
+    private async Task<CountryRowVersion[]> VersionedSnapshotAsync()
+    {
+        await using var context = fixture.CreateContext();
+        return await context.Countries.AsNoTracking().OrderBy(row => row.Id)
+            .Select(row => new CountryRowVersion(new CountryResponse(row.Id, row.Name, row.Continent,
+                row.CountryCode, row.Iso2, row.Iso3, row.CreatedDate, row.ModifiedDate),
+                EF.Property<uint>(row, "xmin"))).ToArrayAsync();
+    }
+
+    private sealed record CountryRowVersion(CountryResponse Country, uint Version);
 
     private async Task<CountryResponse> SnapshotAsync()
     {
