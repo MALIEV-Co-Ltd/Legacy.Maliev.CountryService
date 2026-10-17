@@ -29,6 +29,9 @@ static async Task RunHostAsync(string[] startupArgs)
 
     builder.AddServiceDefaults();
     builder.AddDefaultApiVersioning();
+    builder.Logging.AddConsoleFormatter<CountryPrivateConsoleFormatter, Microsoft.Extensions.Logging.Console.ConsoleFormatterOptions>();
+    builder.Logging.AddConsole(options => options.FormatterName = CountryPrivateConsoleFormatter.FormatterName);
+    builder.Logging.AddFilter<Microsoft.Extensions.Logging.Console.ConsoleLoggerProvider>(null, LogLevel.Warning);
     builder.AddPostgresDbContext<CountryDbContext>(connectionName: "CountryDbContext");
     builder.AddStandardCache("legacy:country:");
     builder.AddStandardCors();

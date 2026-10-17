@@ -223,9 +223,10 @@ public sealed class CountryCompletedResponseObservationTests
     private static void AssertPrivateFields(JsonElement entry)
     {
         var fields = Fields(entry);
-        Assert.Equal(new[] { "EventName", "Operation", "StatusCode", "{OriginalFormat}" },
+        Assert.Equal(new[] { "EventName", "Operation", "StatusCode" },
             fields.EnumerateObject().Select(field => field.Name).Order(StringComparer.Ordinal));
         Assert.DoesNotContain(Private, entry.GetRawText(), StringComparison.Ordinal);
+        Assert.False(fields.TryGetProperty("{OriginalFormat}", out _));
         Assert.False(fields.TryGetProperty("Path", out _));
         Assert.False(fields.TryGetProperty("Exception", out _));
         Assert.Equal(JsonValueKind.Null, entry.GetProperty("Exception").ValueKind);
