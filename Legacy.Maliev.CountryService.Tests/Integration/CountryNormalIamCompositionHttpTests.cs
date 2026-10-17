@@ -15,6 +15,7 @@ using Legacy.Maliev.CountryService.Domain;
 using Maliev.Aspire.ServiceDefaults.IAM;
 using Maliev.Aspire.ServiceDefaults.LegacyAuth;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
@@ -35,6 +36,65 @@ namespace Legacy.Maliev.CountryService.Tests.Integration;
 public sealed class CountryNormalIamCompositionHttpTests(CountryNormalIamFixture fixture)
     : IClassFixture<CountryNormalIamFixture>
 {
+    [Fact]
+    public async Task ObservabilityProbe_NormalProductionPipeline_DoesNotInvokeIamOrMutateStorageAndCache()
+    {
+        var row = await fixture.SeedAsync();
+        var boundary = new CountryNormalIamBoundary();
+        using var app = fixture.App(boundary);
+        using var bootstrap = fixture.Client(app, "anonymous");
+        var cache = app.Services.GetRequiredService<IDistributedCache>();
+        const string cacheKey = "legacy:country:all:v1";
+        byte[] marker = [67, 5, 1, 1];
+        await cache.SetAsync(cacheKey, marker);
+        await using var beforeContext = fixture.Context();
+        var before = JsonSerializer.Serialize(await beforeContext.Countries.AsNoTracking().OrderBy(value => value.Id)
+            .Select(value => new
+            {
+                value.Id,
+                value.Name,
+                value.Continent,
+                value.CountryCode,
+                value.Iso2,
+                value.Iso3,
+                value.CreatedDate,
+                value.ModifiedDate,
+                Version = EF.Property<uint>(value, "xmin")
+            }).ToArrayAsync());
+        foreach (var (peer, expected) in new[] { ("203.0.113.5", 404), ("127.0.0.1", 500), ("127.0.0.1", 429) })
+        {
+            var response = await app.Server.SendAsync(context =>
+            {
+                context.Request.Method = "GET";
+                context.Request.Path = "/internal/diagnostics/observability";
+                context.Request.Headers["X-Maliev-Diagnostic-Id"] = "11111111222233334444555555555555";
+                context.Request.Headers["X-Forwarded-For"] = "127.0.0.1";
+                context.Request.Headers["Authorization"] = "Bearer country67-no-authority";
+                context.Connection.RemoteIpAddress = IPAddress.Parse(peer);
+            });
+            Assert.Equal(expected, response.Response.StatusCode);
+        }
+        Assert.Equal(0, boundary.LoginCalls);
+        Assert.Equal(0, boundary.IamCalls);
+        await fixture.AssertUnchangedAsync(row);
+        await using var afterContext = fixture.Context();
+        var after = JsonSerializer.Serialize(await afterContext.Countries.AsNoTracking().OrderBy(value => value.Id)
+            .Select(value => new
+            {
+                value.Id,
+                value.Name,
+                value.Continent,
+                value.CountryCode,
+                value.Iso2,
+                value.Iso3,
+                value.CreatedDate,
+                value.ModifiedDate,
+                Version = EF.Property<uint>(value, "xmin")
+            }).ToArrayAsync());
+        Assert.Equal(before, after);
+        Assert.Equal(marker, await cache.GetAsync(cacheKey));
+    }
+
     [Theory]
     [InlineData("IAMService", "Production", "https://country40-iam.invalid", "https://country40-iam.invalid/")]
     [InlineData("IAMService", "Production", "https+http://IAMService", "https+http://iamservice/")]
