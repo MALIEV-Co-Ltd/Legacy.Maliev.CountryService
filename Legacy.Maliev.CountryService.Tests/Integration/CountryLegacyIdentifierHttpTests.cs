@@ -224,8 +224,18 @@ public sealed class CountryLegacyRouteBindingHttpTests(CountryLifecycleFixture f
     {
         await using var context = fixture.CreateContext();
         return JsonSerializer.Serialize(await context.Countries.AsNoTracking().OrderBy(row => row.Id)
-            .Select(row => new { row.Id, row.Name, row.Continent, row.CountryCode, row.Iso2, row.Iso3,
-                row.CreatedDate, row.ModifiedDate, Version = EF.Property<uint>(row, "xmin") }).ToArrayAsync());
+            .Select(row => new
+            {
+                row.Id,
+                row.Name,
+                row.Continent,
+                row.CountryCode,
+                row.Iso2,
+                row.Iso3,
+                row.CreatedDate,
+                row.ModifiedDate,
+                Version = EF.Property<uint>(row, "xmin")
+            }).ToArrayAsync());
     }
 
     private sealed class RouteCulture(string name) : IStartupFilter
