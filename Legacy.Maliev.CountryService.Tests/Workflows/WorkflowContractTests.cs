@@ -155,11 +155,13 @@ public sealed class WorkflowContractTests
         {
             ".github/workflows/source-parity-validation.yml",
             "Legacy.Maliev.CountryService.Api/Controllers/CountriesController.cs",
+            "Legacy.Maliev.CountryService.Api/Diagnostics/CountryCompletedResponseObservationMiddleware.cs",
             "Legacy.Maliev.CountryService.Api/Diagnostics/CountryStartupBoundary.cs",
             "Legacy.Maliev.CountryService.Api/Documentation/CountryOpenApi.cs",
             "Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj",
             "Legacy.Maliev.CountryService.Api/Program.cs",
             "Legacy.Maliev.CountryService.Api/Serialization/CountryRequestJsonOptions.cs",
+            "Legacy.Maliev.CountryService.Tests/Integration/CountryCompletedResponseObservationTests.cs",
             "Legacy.Maliev.CountryService.Tests/Integration/CountryDiscardedInputHttpTests.cs",
             "Legacy.Maliev.CountryService.Tests/Integration/CountryDiscardedInputReaderTests.cs",
             "Legacy.Maliev.CountryService.Tests/Integration/CountryFatalStartupAcceptanceTests.cs",
