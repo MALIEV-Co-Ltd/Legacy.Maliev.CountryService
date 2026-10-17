@@ -1,5 +1,8 @@
+using Legacy.Maliev.CountryService.Api.Diagnostics;
 using Maliev.Aspire.ServiceDefaults.IAM;
 using Maliev.Aspire.ServiceDefaults.LegacyAuth;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http;
 
 namespace Legacy.Maliev.CountryService.Api.Authorization;
 
@@ -8,6 +11,7 @@ internal static class CountryIamComposition
 {
     internal static void AddCountryIamComposition(this IHostApplicationBuilder builder)
     {
+        builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<IHttpMessageHandlerBuilderFilter, CountryDependencyFailureObservation>());
         builder.AddLegacyAuthServiceTokenExchange();
         builder.Services.AddTransient<CountryWorkloadExchangeGuard>();
         builder.Services.AddHttpClient(LegacyServiceAccessTokenProvider.HttpClientName, client =>

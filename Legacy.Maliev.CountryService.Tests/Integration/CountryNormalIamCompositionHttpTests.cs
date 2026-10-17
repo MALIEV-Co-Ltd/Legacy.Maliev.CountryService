@@ -6,6 +6,7 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Legacy.Maliev.CountryService.Api.Diagnostics;
 using Docker.DotNet.Models;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
@@ -18,8 +19,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Time.Testing;
 using Microsoft.IdentityModel.Tokens;
@@ -462,6 +465,181 @@ public sealed class CountryNormalIamCompositionHttpTests(CountryNormalIamFixture
         Assert.Equal(0, boundary.LoginCalls);
         Assert.Equal(0, boundary.IamCalls);
     }
+
+    [Theory]
+    [InlineData("IAMService")]
+    [InlineData("LegacyAuthServiceTokenExchange")]
+    public void NamedDependency_NormalFactory_OneObserverOutsideRetryAndExistingGuard(string name)
+    {
+        using var app = fixture.App(new());
+        using var bootstrap = app.CreateClient();
+        var handler = app.Services.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler(name);
+        var chain = new List<Type>();
+        while (handler is DelegatingHandler delegating)
+        {
+            chain.Add(handler.GetType());
+            handler = delegating.InnerHandler!;
+        }
+        var observer = Assert.Single(chain, type => type == typeof(CountryDependencyFailureHandler));
+        var retry = Assert.Single(chain, type => type == typeof(Microsoft.Extensions.Http.Resilience.ResilienceHandler));
+        Assert.True(chain.IndexOf(observer) < chain.IndexOf(retry));
+        if (name == LegacyServiceAccessTokenProvider.HttpClientName)
+        {
+            var guard = Assert.Single(chain, type => type.Name == "CountryWorkloadExchangeGuard");
+            Assert.True(chain.IndexOf(observer) < chain.IndexOf(guard));
+            Assert.True(chain.IndexOf(guard) < chain.IndexOf(retry));
+        }
+        using var client = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(name);
+        Assert.Equal(TimeSpan.FromSeconds(10), client.Timeout);
+    }
+
+    [Fact]
+    public void NamedDependency_UnselectedFactoryClient_HasNoObserver()
+    {
+        using var app = fixture.App(new()).WithWebHostBuilder(builder => builder.ConfigureTestServices(
+            services => services.AddHttpClient("Country63Unselected")));
+        using var bootstrap = app.CreateClient();
+        var handler = app.Services.GetRequiredService<IHttpMessageHandlerFactory>().CreateHandler("Country63Unselected");
+        while (handler is DelegatingHandler delegating)
+        {
+            Assert.IsNotType<CountryDependencyFailureHandler>(handler);
+            handler = delegating.InnerHandler!;
+        }
+    }
+
+    [Theory]
+    [InlineData("unavailable")]
+    [InlineData("network")]
+    public async Task NormalDelete_TerminalIamFailure_RecordsPrivateEventWithoutMutation(string mode)
+    {
+        var row = await fixture.SeedAsync();
+        var boundary = new CountryNormalIamBoundary { Mode = mode };
+        var capture = new CountryDependencyEventCapture();
+        using var app = CaptureDependencies(fixture.App(boundary), capture);
+        using var client = fixture.Client(app);
+        var cache = app.Services.GetRequiredService<IDistributedCache>();
+        const string cacheKey = "legacy:country:all:v1";
+        byte[] marker = [63, 5, 1, 1];
+        await cache.SetAsync(cacheKey, marker);
+        using var response = await client.DeleteAsync($"/Countries/{row.Id}");
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(1, boundary.LoginCalls);
+        Assert.Equal(1, boundary.IamCalls);
+        CountryDependencyFailureObservationTests.AssertPrivateEvent(Assert.Single(capture.Events), 503);
+        await fixture.AssertUnchangedAsync(row);
+        Assert.Equal(marker, await cache.GetAsync(cacheKey));
+    }
+
+    [Fact]
+    public async Task NormalExchange_ByteGuardFailure_RecordsOuterTerminalWithoutRetryOrIamCall()
+    {
+        var boundary = new CountryNormalIamBoundary { Mode = "oversized-login" };
+        var capture = new CountryDependencyEventCapture();
+        using var app = CaptureDependencies(fixture.App(boundary), capture);
+        using var bootstrap = app.CreateClient();
+        using var client = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(LegacyServiceAccessTokenProvider.HttpClientName);
+        using var request = LoginRequest(boundary);
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.SendAsync(request));
+        CountryDependencyFailureObservationTests.AssertPrivateEvent(Assert.Single(capture.Events), 503, LegacyServiceAccessTokenProvider.HttpClientName);
+        Assert.Equal(32769, boundary.BodyBytesRead);
+        Assert.True(boundary.BodyDisposed);
+        Assert.Equal(1, boundary.LoginCalls);
+        Assert.Equal(0, boundary.IamCalls);
+    }
+
+    [Fact]
+    public async Task NormalExchange_ExistingTenSecondClockBudget_RecordsNoncallerCancellation504()
+    {
+        var boundary = new CountryNormalIamBoundary { Mode = "stalled-login", Clock = new FakeTimeProvider() };
+        var capture = new CountryDependencyEventCapture();
+        using var app = CaptureDependencies(fixture.App(boundary), capture);
+        using var bootstrap = app.CreateClient();
+        using var client = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient(LegacyServiceAccessTokenProvider.HttpClientName);
+        using var request = LoginRequest(boundary);
+        var pending = client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, CancellationToken.None);
+        await boundary.BodyEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        boundary.Clock.Advance(TimeSpan.FromSeconds(9));
+        Assert.False(pending.IsCompleted);
+        Assert.Empty(capture.Events);
+        boundary.Clock.Advance(TimeSpan.FromSeconds(1));
+        var escaped = await Record.ExceptionAsync(async () =>
+        {
+            using var response = await pending.WaitAsync(TimeSpan.FromSeconds(2));
+        });
+        Assert.IsAssignableFrom<OperationCanceledException>(escaped);
+        CountryDependencyFailureObservationTests.AssertPrivateEvent(Assert.Single(capture.Events), 504, LegacyServiceAccessTokenProvider.HttpClientName);
+        Assert.True(boundary.BodyDisposed);
+        Assert.Equal(1, boundary.LoginCalls);
+        Assert.Equal(0, boundary.IamCalls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NamedIam_SafeGetRetries_ObservesOnlyTerminalFailureNotRecoveredAttempt(bool terminal)
+    {
+        var boundary = new CountryNormalIamBoundary();
+        var capture = new CountryDependencyEventCapture();
+        var attempts = 0;
+        using var transport = new CountryDependencyTransport((request, _) =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Equal("Bearer", request.Headers.Authorization?.Scheme);
+            var workload = new JwtSecurityTokenHandler().ReadJwtToken(request.Headers.Authorization!.Parameter);
+            Assert.Equal("service:legacy-country", workload.Subject);
+            Assert.Equal(SecurityAlgorithms.RsaSha256, workload.Header.Alg);
+            Assert.DoesNotContain(workload.Claims, claim => claim.Type is "permission" or "permissions");
+            attempts++;
+            return Task.FromResult(new HttpResponseMessage(terminal || attempts == 1
+                ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK));
+        });
+        using var app = CaptureDependencies(fixture.App(boundary), capture).WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services =>
+            {
+                services.Configure<HttpClientFactoryOptions>("IAMService", options =>
+                    options.HttpMessageHandlerBuilderActions.Add(handler => handler.PrimaryHandler = transport));
+                // Test-only timing control: same actual production retry predicates/count/order, no sleeps.
+                services.ConfigureAll<HttpStandardResilienceOptions>(options =>
+                {
+                    options.Retry.Delay = TimeSpan.Zero;
+                    options.Retry.UseJitter = false;
+                });
+            }));
+        using var bootstrap = app.CreateClient();
+        using var client = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient("IAMService");
+        using var response = await client.GetAsync("https://country40-iam.invalid/country63-controlled");
+        Assert.Equal(terminal ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK, response.StatusCode);
+        Assert.True(attempts > 1, "The existing real safe-method retry must execute, not a test-owned retry replacement.");
+        Assert.Equal(1, boundary.LoginCalls);
+        if (terminal) CountryDependencyFailureObservationTests.AssertPrivateEvent(Assert.Single(capture.Events), 503);
+        else Assert.Empty(capture.Events);
+    }
+
+    [Fact]
+    public async Task NamedIam_CallerOwnedFlag_SuppressesEventWithoutChangingRealWorkloadExchange()
+    {
+        var boundary = new CountryNormalIamBoundary { Mode = "unavailable" };
+        var capture = new CountryDependencyEventCapture();
+        using var app = CaptureDependencies(fixture.App(boundary), capture);
+        using var bootstrap = app.CreateClient();
+        using var client = app.Services.GetRequiredService<IHttpClientFactory>().CreateClient("IAMService");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://country40-iam.invalid/iam/v1/auth/check-permission")
+        {
+            Content = JsonContent.Create(new { principalId = "employee:country40", permissionId = "legacy-country.countries.delete",
+                resourcePath = "global", bypassCache = true })
+        };
+        request.Headers.Add("X-Maliev-IAM-Live-Check-Key", boundary.ExpectedCredential);
+        request.Options.Set(new HttpRequestOptionsKey<bool>("Maliev.DependencyFailureOwnedByCaller"), true);
+        using var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        Assert.Equal(1, boundary.LoginCalls);
+        Assert.Equal(1, boundary.IamCalls);
+        Assert.Empty(capture.Events);
+    }
+
+    private static WebApplicationFactory<Program> CaptureDependencies(WebApplicationFactory<Program> app,
+        CountryDependencyEventCapture capture) => app.WithWebHostBuilder(builder =>
+            builder.ConfigureTestServices(services => services.AddSingleton<ILoggerProvider>(capture)));
 }
 
 /// <summary>Fresh local tmpfs PostgreSQL18/Redis; unique rows and a normal Program instance per case.</summary>
