@@ -76,6 +76,7 @@ public sealed class CountryRequestHttpTests(CountryLifecycleFixture fixture)
     public async Task OrderedNullAndUnknownNested_ActualMutationRetainsLastNonNullAndServerOwnership(string method)
     {
         var id = method == "PUT" ? await fixture.SeedAsync("Before") : 0;
+        var before = method == "PUT" ? await SnapshotAsync() : null;
         using var client = fixture.CreateClient(CountryPermissions.CountriesCreate, CountryPermissions.CountriesUpdate);
         const string json = "{\"name\":\"Thailand\",\"countryCode\":764,\"COUNTRYCODE\":null,\"unknown\":{\"countryCode\":[{}]},\"id\":99999,\"createdDate\":\"1900-01-01T00:00:00Z\",\"modifiedDate\":\"1900-01-01T00:00:00Z\"}";
         using var content = new StringContent(json, Encoding.UTF8, "application/json");
@@ -93,7 +94,7 @@ public sealed class CountryRequestHttpTests(CountryLifecycleFixture fixture)
         Assert.Null(stored.Iso3);
         Assert.True(stored.ModifiedDate.HasValue && stored.ModifiedDate.Value > new DateTime(2000, 1, 1));
         if (method == "POST") Assert.True(stored.CreatedDate.HasValue && stored.CreatedDate.Value > new DateTime(2000, 1, 1));
-        else Assert.Null(stored.CreatedDate);
+        else Assert.Equal(before!.CreatedDate, stored.CreatedDate);
     }
 
     [Theory]
@@ -108,6 +109,7 @@ public sealed class CountryRequestHttpTests(CountryLifecycleFixture fixture)
     public async Task InvalidConsumedInput_ActualPostAndPutLeaveExistingRowAndReturnPrivate400(string json)
     {
         var id = await fixture.SeedAsync("Before", "TH", "THA");
+        var before = await SnapshotAsync();
         using var client = fixture.CreateClient(CountryPermissions.CountriesCreate, CountryPermissions.CountriesUpdate);
         foreach (var method in new[] { "POST", "PUT" })
         {
@@ -119,12 +121,11 @@ public sealed class CountryRequestHttpTests(CountryLifecycleFixture fixture)
             var body = await response.Content.ReadAsStringAsync();
             Assert.DoesNotContain("private-marker", body, StringComparison.Ordinal);
             Assert.DoesNotContain("StackTrace", body, StringComparison.OrdinalIgnoreCase);
-            await using var context = fixture.CreateContext();
-            var stored = await context.Countries.AsNoTracking().SingleAsync();
+            var stored = await SnapshotAsync();
             Assert.Equal("Before", stored.Name);
             Assert.Equal("TH", stored.Iso2);
             Assert.Equal("THA", stored.Iso3);
-            Assert.Null(stored.ModifiedDate);
+            Assert.Equal(before, stored);
         }
     }
 
@@ -171,6 +172,16 @@ public sealed class CountryRequestHttpTests(CountryLifecycleFixture fixture)
         Assert.Equal(2, properties["iso2"]!["maxLength"]!.GetValue<int>());
         Assert.Equal(3, properties["iso3"]!["maxLength"]!.GetValue<int>());
         Assert.Contains(candidateSchema["required"]!.AsArray(), value => value!.GetValue<string>() == "name");
+    }
+
+    private async Task<CountryResponse> SnapshotAsync()
+    {
+        await using var context = fixture.CreateContext();
+        return await context.Countries.AsNoTracking()
+            .Select(country => new CountryResponse(
+                country.Id, country.Name, country.Continent, country.CountryCode,
+                country.Iso2, country.Iso3, country.CreatedDate, country.ModifiedDate))
+            .SingleAsync();
     }
 
     private static JsonNode RequestSchema(JsonNode document)
