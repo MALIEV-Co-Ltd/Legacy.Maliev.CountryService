@@ -52,6 +52,7 @@ static async Task RunHostAsync(string[] startupArgs)
     var app = builder.Build();
 
     app.UseStandardMiddleware();
+    app.UseMiddleware<CountryCompletedResponseObservationMiddleware>();
     app.UseCors();
     app.UseAuthentication();
     app.UseAuthorization();
