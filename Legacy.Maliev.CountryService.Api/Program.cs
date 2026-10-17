@@ -4,6 +4,7 @@ using Legacy.Maliev.CountryService.Application.Services;
 using Legacy.Maliev.CountryService.Data;
 using Legacy.Maliev.CountryService.Api.Documentation;
 using Legacy.Maliev.CountryService.Api.Authorization;
+using Legacy.Maliev.CountryService.Api.Serialization;
 using Maliev.Aspire.ServiceDefaults;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,7 @@ builder.Services.AddOpenApi("v1", CountryOpenApi.Configure);
 
 builder.Services.AddControllers().AddJsonOptions(options =>
     options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull);
+builder.Services.Configure<Microsoft.AspNetCore.Mvc.JsonOptions>(CountryRequestJsonOptions.Configure);
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICountryRepository, CountryRepository>();
 builder.Services.AddScoped<ICountryCache, DistributedCountryCache>();

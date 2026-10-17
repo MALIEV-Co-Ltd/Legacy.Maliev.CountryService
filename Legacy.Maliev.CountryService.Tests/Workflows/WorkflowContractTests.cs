@@ -136,6 +136,36 @@ public sealed class WorkflowContractTests
         Assert.DoesNotContain("LEGACY_DEPLOY_ENABLED", workflow, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("pull_request")]
+    [InlineData("push")]
+    public void SourceParity_EnrollsTheCompleteCountryRequestChangeAndExistingCoverageCohort(string trigger)
+    {
+        var yaml = new YamlStream();
+        yaml.Load(new StringReader(File.ReadAllText(FindRepositoryFile(".github", "workflows", "source-parity-validation.yml"))));
+        var root = Assert.IsType<YamlMappingNode>(Assert.Single(yaml.Documents).RootNode);
+        var events = Assert.IsType<YamlMappingNode>(root.Children[new YamlScalarNode("on")]);
+        var entry = Assert.IsType<YamlMappingNode>(events.Children[new YamlScalarNode(trigger)]);
+        var branches = Assert.IsType<YamlSequenceNode>(entry.Children[new YamlScalarNode("branches")]);
+        Assert.Equal("main", Assert.IsType<YamlScalarNode>(Assert.Single(branches.Children)).Value);
+        var paths = Assert.IsType<YamlSequenceNode>(entry.Children[new YamlScalarNode("paths")]).Children
+            .Select(node => Assert.IsType<YamlScalarNode>(node).Value!).ToArray();
+        Assert.Equal(paths.Length, paths.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(new[]
+        {
+            ".github/workflows/source-parity-validation.yml",
+            "Legacy.Maliev.CountryService.Api/Controllers/CountriesController.cs",
+            "Legacy.Maliev.CountryService.Api/Program.cs",
+            "Legacy.Maliev.CountryService.Api/Serialization/CountryRequestJsonOptions.cs",
+            "Legacy.Maliev.CountryService.Tests/Integration/CountryLegacyIdentifierHttpTests.cs",
+            "Legacy.Maliev.CountryService.Tests/Integration/CountryRequestHttpTests.cs",
+            "Legacy.Maliev.CountryService.Tests/Integration/CountryRequestReaderTests.cs",
+            "Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj",
+            "Legacy.Maliev.CountryService.Tests/Workflows/WorkflowContractTests.cs",
+            "scripts/verify-source-parity-coverage.py",
+        }, paths.Order(StringComparer.Ordinal));
+    }
+
     private static void AssertMutationRejected(string original, string replacement)
     {
         Assert.Contains(original, Workflow, StringComparison.Ordinal);

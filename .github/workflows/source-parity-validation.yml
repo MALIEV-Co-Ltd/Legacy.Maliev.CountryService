@@ -6,6 +6,12 @@ on:
     paths:
       - 'Legacy.Maliev.CountryService.Api/Controllers/CountriesController.cs'
       - 'Legacy.Maliev.CountryService.Tests/Integration/CountryLegacyIdentifierHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Serialization/CountryRequestJsonOptions.cs'
+      - 'Legacy.Maliev.CountryService.Api/Program.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestReaderTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj'
+      - 'Legacy.Maliev.CountryService.Tests/Workflows/WorkflowContractTests.cs'
       - '.github/workflows/source-parity-validation.yml'
       - 'scripts/verify-source-parity-coverage.py'
   push:
@@ -13,6 +19,12 @@ on:
     paths:
       - 'Legacy.Maliev.CountryService.Api/Controllers/CountriesController.cs'
       - 'Legacy.Maliev.CountryService.Tests/Integration/CountryLegacyIdentifierHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Serialization/CountryRequestJsonOptions.cs'
+      - 'Legacy.Maliev.CountryService.Api/Program.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestReaderTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj'
+      - 'Legacy.Maliev.CountryService.Tests/Workflows/WorkflowContractTests.cs'
       - '.github/workflows/source-parity-validation.yml'
       - 'scripts/verify-source-parity-coverage.py'
 
