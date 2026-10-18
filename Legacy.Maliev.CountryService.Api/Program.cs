@@ -35,6 +35,11 @@ static async Task RunHostAsync(string[] startupArgs)
     builder.AddPostgresDbContext<CountryDbContext>(connectionName: "CountryDbContext");
     builder.AddStandardCache("legacy:country:");
     builder.AddStandardCors();
+    builder.Services.AddCors(options => options.AddPolicy("OriginalCountryCors", policy =>
+        policy.WithOrigins("http://*.maliev.com", "https://*.maliev.com")
+            .SetIsOriginAllowedToAllowWildcardSubdomains()
+            .AllowAnyHeader()
+            .AllowAnyMethod()));
     builder.AddJwtAuthentication();
     builder.AddCountryIamComposition();
     builder.AddStandardMiddleware(options => options.EnableRequestLogging = true);
@@ -58,7 +63,12 @@ static async Task RunHostAsync(string[] startupArgs)
     app.UseMiddleware<CountryObservabilityProbeMiddleware>();
     app.UseStandardMiddleware();
     app.UseMiddleware<CountryCompletedResponseObservationMiddleware>();
-    app.UseCors();
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHsts();
+    }
+    app.UseHttpsRedirection();
+    app.UseCors("OriginalCountryCors");
     app.UseAuthentication();
     app.UseAuthorization();
     app.MapDefaultEndpoints("countries");
