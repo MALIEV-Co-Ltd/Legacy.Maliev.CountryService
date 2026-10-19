@@ -56,7 +56,7 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
             Assert.Equal("no-store", controlled.Headers.CacheControl?.ToString());
             Assert.Equal("noindex", Assert.Single(controlled.Headers.GetValues("X-Robots-Tag")));
             Assert.Equal(probeId, Assert.Single(controlled.Headers.GetValues("X-Maliev-Diagnostic-Id")));
-            Assert.False(controlled.Headers.Contains("X-Maliev-Health-Instance"));
+            Assert.Matches("^[a-f0-9]{32}$", Assert.Single(controlled.Headers.GetValues("X-Maliev-Health-Instance")));
         }
         await api.WaitForProbeCriticalAsync(probeId);
         var probeEvents = api.ProbeEvents(probeId);
@@ -73,6 +73,7 @@ public sealed class CountryStartupAcceptanceTests : IAsyncLifetime
             Assert.Equal("no-store", limited.Headers.CacheControl?.ToString());
             Assert.Equal("noindex", Assert.Single(limited.Headers.GetValues("X-Robots-Tag")));
             Assert.False(limited.Headers.Contains("X-Maliev-Diagnostic-Id"));
+            Assert.False(limited.Headers.Contains("X-Maliev-Health-Instance"));
         }
         using (var ordinary = await api.Client.GetAsync("/Countries"))
         {

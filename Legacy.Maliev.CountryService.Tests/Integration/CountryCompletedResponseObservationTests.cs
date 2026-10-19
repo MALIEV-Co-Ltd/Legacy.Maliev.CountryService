@@ -116,6 +116,7 @@ public sealed class CountryCompletedResponseObservationTests
     {
         await using var factory = new ObservationFactory();
         using var client = factory.CreateClient();
+        string? healthInstance = null;
         foreach (var healthy in new[] { true, false, false, true, false })
         {
             factory.Control.Healthy = healthy;
@@ -125,7 +126,11 @@ public sealed class CountryCompletedResponseObservationTests
             using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
             Assert.Equal(healthy ? "Healthy" : "Unhealthy", json.RootElement.GetProperty("status").GetString());
             Assert.Equal(3, json.RootElement.EnumerateObject().Count());
-            Assert.False(response.Headers.Contains("X-Maliev-Health-Instance"));
+            var currentHealthInstance = Assert.Single(response.Headers.GetValues("X-Maliev-Health-Instance"));
+            Assert.Matches("^[a-f0-9]{32}$", currentHealthInstance);
+            healthInstance ??= currentHealthInstance;
+            Assert.Equal(healthInstance, currentHealthInstance);
+            Assert.Equal("no-store", response.Headers.CacheControl?.ToString());
             Assert.False(response.Headers.Contains("X-Maliev-Diagnostic-Id"));
         }
         var events = Events(factory, "HealthProbeFailure");
