@@ -10,6 +10,7 @@ public sealed class CountryObservabilityProbeMiddleware
 {
     private const string DiagnosticPath = "/internal/diagnostics/observability";
     private static readonly object NonceKey = new();
+    private readonly string _healthInstance = Guid.NewGuid().ToString("N");
     private readonly RequestDelegate _next;
     private readonly ILogger _logger;
     private readonly TimeProvider _timeProvider;
@@ -53,6 +54,17 @@ public sealed class CountryObservabilityProbeMiddleware
     /// <returns>The unchanged next operation, a quiet rejection, or the controlled failure response.</returns>
     public async Task InvokeAsync(HttpContext context)
     {
+        if (HttpMethods.IsGet(context.Request.Method)
+            && (context.Request.Path == "/countries/liveness" || context.Request.Path == "/countries/readiness"))
+        {
+            WriteHealthHeaders(context);
+            context.Response.OnStarting(() =>
+            {
+                WriteHealthHeaders(context);
+                return Task.CompletedTask;
+            });
+        }
+
         if (context.Request.Path != DiagnosticPath)
         {
             await _next(context);
@@ -110,11 +122,21 @@ public sealed class CountryObservabilityProbeMiddleware
         }
     }
 
-    private static void WriteHeaders(HttpContext context, string? nonce)
+    private void WriteHeaders(HttpContext context, string? nonce)
     {
         context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers["X-Robots-Tag"] = "noindex";
-        if (nonce is not null) context.Response.Headers["X-Maliev-Diagnostic-Id"] = nonce;
+        if (nonce is not null)
+        {
+            context.Response.Headers["X-Maliev-Diagnostic-Id"] = nonce;
+            WriteHealthHeaders(context);
+        }
+    }
+
+    private void WriteHealthHeaders(HttpContext context)
+    {
+        context.Response.Headers["X-Maliev-Health-Instance"] = _healthInstance;
+        context.Response.Headers.CacheControl = "no-store";
     }
 }
 
