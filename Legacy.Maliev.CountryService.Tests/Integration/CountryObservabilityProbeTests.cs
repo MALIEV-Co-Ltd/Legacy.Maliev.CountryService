@@ -228,17 +228,83 @@ public sealed class CountryObservabilityProbeTests
         Assert.False(context.Response.Headers.ContainsKey("X-Maliev-Diagnostic-Id"));
     }
 
+    [Theory]
+    [InlineData("/countries/liveness")]
+    [InlineData("/countries/readiness")]
+    public async Task Health_RegisteredGet_IdentifiesApplicationWithoutSuccessDiagnostic(string path)
+    {
+        await using var factory = new ProbeFactory();
+        using var bootstrap = factory.CreateClient();
+        factory.Logs.Lines.Clear();
+
+        var response = await SendAsync(factory, path: path, secure: true, credentials: false);
+
+        Assert.Equal(StatusCodes.Status200OK, response.Response.StatusCode);
+        Assert.Matches("^[a-f0-9]{32}$", response.Response.Headers["X-Maliev-Health-Instance"].ToString());
+        Assert.Equal("no-store", response.Response.Headers.CacheControl.ToString());
+        Assert.False(response.Response.Headers.ContainsKey("X-Maliev-Diagnostic-Id"));
+        Assert.Empty(factory.Logs.Lines);
+        if (path == "/countries/liveness")
+        {
+            using var reader = new StreamReader(response.Response.Body);
+            Assert.Equal("Healthy", await reader.ReadToEndAsync());
+        }
+    }
+
+    [Fact]
+    public async Task Health_ApplicationIdentity_IsStableAcrossRegisteredHealthAndAdmittedProbeButNotIndependentHosts()
+    {
+        await using var first = new ProbeFactory();
+        await using var second = new ProbeFactory();
+        var liveness = await SendAsync(first, path: "/countries/liveness", secure: true, credentials: false);
+        var marker = liveness.Response.Headers["X-Maliev-Health-Instance"].ToString();
+        Assert.Matches("^[a-f0-9]{32}$", marker);
+        var readiness = await SendAsync(first, path: "/countries/readiness", secure: true, credentials: false);
+        var repeated = await SendAsync(first, path: "/countries/liveness", secure: true, credentials: false);
+        var admitted = await SendAsync(first);
+        Assert.Equal(500, admitted.Response.StatusCode);
+        AssertHeaders(admitted, Nonce);
+        Assert.Equal(marker, readiness.Response.Headers["X-Maliev-Health-Instance"].ToString());
+        Assert.Equal(marker, repeated.Response.Headers["X-Maliev-Health-Instance"].ToString());
+        Assert.Equal(marker, admitted.Response.Headers["X-Maliev-Health-Instance"].ToString());
+        var independent = await SendAsync(second, path: "/countries/liveness", secure: true, credentials: false);
+        var independentMarker = independent.Response.Headers["X-Maliev-Health-Instance"].ToString();
+        Assert.Matches("^[a-f0-9]{32}$", independentMarker);
+        Assert.NotEqual(marker, independentMarker);
+    }
+
+    [Theory]
+    [InlineData("/countries/liveness", "POST")]
+    [InlineData("/countries/readiness", "HEAD")]
+    [InlineData("/countries/aspire-liveness", "GET")]
+    [InlineData("/countries/private/readiness", "GET")]
+    [InlineData("/liveness", "GET")]
+    public async Task Health_OtherMethodsAndUnregisteredLookalikes_DoNotExposeApplicationIdentity(string path, string method)
+    {
+        await using var factory = new ProbeFactory();
+
+        var response = await SendAsync(factory, path: path, method: method, secure: true, credentials: false);
+
+        Assert.False(response.Response.Headers.ContainsKey("X-Maliev-Health-Instance"));
+        Assert.False(response.Response.Headers.ContainsKey("X-Maliev-Diagnostic-Id"));
+        Assert.Empty(Events(factory));
+    }
+
     private static async Task<HttpContext> SendAsync(ProbeFactory factory, string path = Path, string method = "GET",
-        string? peer = "127.0.0.1", string[]? values = null, string? forwarded = null)
+        string? peer = "127.0.0.1", string[]? values = null, string? forwarded = null, bool secure = false, bool credentials = true)
     {
         using var bootstrap = factory.CreateClient();
         return await factory.Server.SendAsync(context =>
         {
             context.Request.Path = path;
             context.Request.Method = method;
+            if (secure) context.Request.Scheme = "https";
             context.Request.QueryString = new QueryString("?token=" + Private);
-            context.Request.Headers["Authorization"] = "Bearer " + Private;
-            context.Request.Headers["X-Private-Test"] = Private;
+            if (credentials)
+            {
+                context.Request.Headers["Authorization"] = "Bearer " + Private;
+                context.Request.Headers["X-Private-Test"] = Private;
+            }
             context.Request.Headers["X-Maliev-Diagnostic-Id"] = new StringValues(values ?? [Nonce]);
             if (forwarded is not null) context.Request.Headers["X-Forwarded-For"] = forwarded;
             context.Connection.RemoteIpAddress = peer is null ? null : IPAddress.Parse(peer);
@@ -251,7 +317,8 @@ public sealed class CountryObservabilityProbeTests
     {
         Assert.Equal("no-store", context.Response.Headers.CacheControl.ToString());
         Assert.Equal("noindex", context.Response.Headers["X-Robots-Tag"].ToString());
-        Assert.False(context.Response.Headers.ContainsKey("X-Maliev-Health-Instance"));
+        if (nonce is null) Assert.False(context.Response.Headers.ContainsKey("X-Maliev-Health-Instance"));
+        else Assert.Matches("^[a-f0-9]{32}$", context.Response.Headers["X-Maliev-Health-Instance"].ToString());
         if (nonce is null) Assert.False(context.Response.Headers.ContainsKey("X-Maliev-Diagnostic-Id"));
         else Assert.Equal(nonce, context.Response.Headers["X-Maliev-Diagnostic-Id"].ToString());
     }
