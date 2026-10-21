@@ -164,16 +164,21 @@ public sealed class CountryOpenApiConsumerAcceptanceTests(CountryLifecycleFixtur
         using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal(id, body.RootElement.GetProperty("id").GetInt32());
         using var noninteger = await client.GetAsync("/Countries/not-an-integer");
-        Assert.Equal(HttpStatusCode.NotFound, noninteger.StatusCode);
+        // Original 5fac706a7983a6d359b39acbd670e6800afe020e controller blob 2ebceeee7ed09231019758d69843f5ebcc77f7bc
+        // (also inherited at 72eb9f1949176392141951d35e6e06f7c30af4c2) uses {id} + int: native binding400, not constraint404.
+        Assert.Equal(HttpStatusCode.BadRequest, noninteger.StatusCode);
         using var document = await DocumentAsync();
-        var parameter = Assert.Single(Operation(document, "/Countries/{id}", "get").GetProperty("parameters")
-            .EnumerateArray(), value => value.GetProperty("name").GetString() == "id");
-        Assert.Equal("path", parameter.GetProperty("in").GetString());
-        Assert.True(parameter.GetProperty("required").GetBoolean());
-        Assert.Equal("integer", parameter.GetProperty("schema").GetProperty("type").GetString());
-        Assert.Equal("int32", parameter.GetProperty("schema").GetProperty("format").GetString());
-        Assert.True(parameter.TryGetProperty("description", out var description)
-            && !string.IsNullOrWhiteSpace(description.GetString()), "Original source documents the identifier parameter; consumers need its semantics.");
+        foreach (var verb in new[] { "get", "put", "delete" })
+        {
+            var parameter = Assert.Single(Operation(document, "/Countries/{id}", verb).GetProperty("parameters")
+                .EnumerateArray(), value => value.GetProperty("name").GetString() == "id");
+            Assert.Equal("path", parameter.GetProperty("in").GetString());
+            Assert.True(parameter.GetProperty("required").GetBoolean());
+            Assert.Equal("integer", parameter.GetProperty("schema").GetProperty("type").GetString());
+            Assert.Equal("int32", parameter.GetProperty("schema").GetProperty("format").GetString());
+            Assert.True(parameter.TryGetProperty("description", out var description)
+                && !string.IsNullOrWhiteSpace(description.GetString()), "Original source documents the identifier parameter; consumers need its semantics.");
+        }
     }
 
     [Fact]

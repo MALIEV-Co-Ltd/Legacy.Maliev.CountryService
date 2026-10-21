@@ -43,7 +43,7 @@ public sealed class CountriesController(ICountryService countryService) : Contro
     /// <response code="401">A valid bearer credential is required.</response>
     /// <response code="403">The caller is not authorized to read the country.</response>
     /// <response code="404">The country does not exist.</response>
-    [HttpGet("{id:int}", Name = "GetCountry")]
+    [HttpGet("{id}", Name = "GetCountry")]
     [RequirePermission(CountryPermissions.CountriesRead)]
     [ProducesResponseType<CountryResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -75,6 +75,11 @@ public sealed class CountriesController(ICountryService countryService) : Contro
         [FromBody] UpsertCountryRequest request,
         CancellationToken cancellationToken)
     {
+        if (request is null)
+        {
+            return BadRequest();
+        }
+
         var created = await countryService.CreateAsync(request, cancellationToken);
         return CreatedAtRoute("GetCountry", new { id = created.Id }, created);
     }
@@ -90,7 +95,7 @@ public sealed class CountriesController(ICountryService countryService) : Contro
     /// <response code="403">The caller is not authorized to update the country.</response>
     /// <response code="404">The country does not exist.</response>
     /// <response code="409">Plain-text explanation that a concurrent request changed the country.</response>
-    [HttpPut("{id:int}")]
+    [HttpPut("{id}")]
     [RequirePermission(CountryPermissions.CountriesUpdate)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
@@ -103,7 +108,7 @@ public sealed class CountriesController(ICountryService countryService) : Contro
         [FromBody] UpsertCountryRequest request,
         CancellationToken cancellationToken)
     {
-        if (id == 0)
+        if (request is null || id == 0)
         {
             return BadRequest();
         }
@@ -129,7 +134,7 @@ public sealed class CountriesController(ICountryService countryService) : Contro
     /// <response code="403">Current live permission to delete the country was not granted.</response>
     /// <response code="404">The country does not exist.</response>
     /// <response code="409">Plain-text explanation that a concurrent request changed the country.</response>
-    [HttpDelete("{id:int}")]
+    [HttpDelete("{id}")]
     [RequirePermission(CountryPermissions.CountriesDelete, RequireLiveCheck = true, IsCritical = true)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

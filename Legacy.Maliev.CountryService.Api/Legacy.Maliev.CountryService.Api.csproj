@@ -23,6 +23,11 @@
     <ProjectReference Include="..\Legacy.Maliev.CountryService.Data\Legacy.Maliev.CountryService.Data.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="10.0.12" />
+  </ItemGroup>
+
   <Target Name="IncludeCountryApplicationXmlComments"
           AfterTargets="ResolveReferences" BeforeTargets="CoreCompile">
     <ItemGroup>

@@ -6,6 +6,29 @@ on:
     paths:
       - 'Legacy.Maliev.CountryService.Api/Controllers/CountriesController.cs'
       - 'Legacy.Maliev.CountryService.Tests/Integration/CountryLegacyIdentifierHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Serialization/CountryRequestJsonOptions.cs'
+      - 'Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj'
+      - 'Legacy.Maliev.CountryService.Api/Documentation/CountryOpenApi.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryDiscardedInputReaderTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryDiscardedInputHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Program.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryObservabilityProbeMiddleware.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryObservabilityProbeTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryPrivateConsoleFormatter.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryPrivateConsoleFormatterTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryStartupAcceptanceTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Authorization/CountryIamComposition.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryDependencyFailureObservation.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryDependencyFailureObservationTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryNormalIamCompositionHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryCompletedResponseObservationMiddleware.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryCompletedResponseObservationTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryStartupBoundary.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryFatalStartupAcceptanceTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestReaderTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj'
+      - 'Legacy.Maliev.CountryService.Tests/Workflows/WorkflowContractTests.cs'
       - '.github/workflows/source-parity-validation.yml'
       - 'scripts/verify-source-parity-coverage.py'
   push:
@@ -13,6 +36,29 @@ on:
     paths:
       - 'Legacy.Maliev.CountryService.Api/Controllers/CountriesController.cs'
       - 'Legacy.Maliev.CountryService.Tests/Integration/CountryLegacyIdentifierHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Serialization/CountryRequestJsonOptions.cs'
+      - 'Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj'
+      - 'Legacy.Maliev.CountryService.Api/Documentation/CountryOpenApi.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryDiscardedInputReaderTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryDiscardedInputHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Program.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryObservabilityProbeMiddleware.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryObservabilityProbeTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryPrivateConsoleFormatter.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryPrivateConsoleFormatterTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryStartupAcceptanceTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Authorization/CountryIamComposition.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryDependencyFailureObservation.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryDependencyFailureObservationTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryNormalIamCompositionHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryCompletedResponseObservationMiddleware.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryCompletedResponseObservationTests.cs'
+      - 'Legacy.Maliev.CountryService.Api/Diagnostics/CountryStartupBoundary.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryFatalStartupAcceptanceTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestReaderTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Integration/CountryRequestHttpTests.cs'
+      - 'Legacy.Maliev.CountryService.Tests/Legacy.Maliev.CountryService.Tests.csproj'
+      - 'Legacy.Maliev.CountryService.Tests/Workflows/WorkflowContractTests.cs'
       - '.github/workflows/source-parity-validation.yml'
       - 'scripts/verify-source-parity-coverage.py'
 
@@ -60,7 +106,7 @@ jobs:
         run: python3 scripts/verify-source-parity-coverage.py source-parity-results
       - name: Preserve source parity receipts
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: country-source-parity-${{ github.sha }}
           path: source-parity-results
