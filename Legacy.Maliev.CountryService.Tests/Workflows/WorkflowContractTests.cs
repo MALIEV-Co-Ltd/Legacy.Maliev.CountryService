@@ -154,6 +154,7 @@ public sealed class WorkflowContractTests
         Assert.Equal(new[]
         {
             ".github/workflows/source-parity-validation.yml",
+            "Directory.Build.props",
             "Legacy.Maliev.CountryService.Api/Authorization/CountryIamComposition.cs",
             "Legacy.Maliev.CountryService.Api/Controllers/CountriesController.cs",
             "Legacy.Maliev.CountryService.Api/Diagnostics/CountryCompletedResponseObservationMiddleware.cs",
@@ -165,6 +166,7 @@ public sealed class WorkflowContractTests
             "Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService.Api.csproj",
             "Legacy.Maliev.CountryService.Api/Program.cs",
             "Legacy.Maliev.CountryService.Api/Serialization/CountryRequestJsonOptions.cs",
+            "Legacy.Maliev.CountryService.Data/Legacy.Maliev.CountryService.Data.csproj",
             "Legacy.Maliev.CountryService.Tests/Integration/CountryCompletedResponseObservationTests.cs",
             "Legacy.Maliev.CountryService.Tests/Integration/CountryDependencyFailureObservationTests.cs",
             "Legacy.Maliev.CountryService.Tests/Integration/CountryDiscardedInputHttpTests.cs",
