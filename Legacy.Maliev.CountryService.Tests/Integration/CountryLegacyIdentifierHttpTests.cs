@@ -26,6 +26,88 @@ public sealed class CountryLegacyIdentifierHttpTests(CountryLifecycleFixture fix
     /// <inheritdoc />
     public Task DisposeAsync() => Task.CompletedTask;
 
+    /// <summary>Legacy list and detail reads expose the same complete source-shaped rows without mutating them.</summary>
+    [Fact]
+    public async Task LegacyReads_FullAndNullableRows_PreserveWireAndStorage()
+    {
+        await using (var seed = fixture.CreateContext())
+        {
+            await seed.Database.ExecuteSqlRawAsync("""
+                INSERT INTO "Country" ("Name", "Continent", "CountryCode", "ISO2", "ISO3", "CreatedDate", "ModifiedDate")
+                VALUES ('Alpha', 'Asia', '764', 'TH', 'THA', TIMESTAMP '2001-02-03 04:05:06', TIMESTAMP '2002-03-04 05:06:07'),
+                       ('Beta', NULL, NULL, NULL, NULL, NULL, NULL)
+                """);
+        }
+
+        await using var beforeContext = fixture.CreateContext();
+        var before = await beforeContext.Countries.AsNoTracking().OrderBy(row => row.Id)
+            .Select(row => new
+            {
+                row.Id,
+                row.Name,
+                row.Continent,
+                row.CountryCode,
+                row.Iso2,
+                row.Iso3,
+                row.CreatedDate,
+                row.ModifiedDate,
+                Version = EF.Property<uint>(row, "xmin")
+            }).ToArrayAsync();
+        Assert.Equal(2, before.Length);
+        using var anonymous = fixture.CreateAnonymousClient();
+        using var reader = fixture.CreateClient(CountryPermissions.CountriesRead);
+        using var listResponse = await anonymous.GetAsync("/Countries");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        using var list = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync());
+        var rows = list.RootElement.EnumerateArray().ToArray();
+        Assert.Equal(2, rows.Length);
+
+        foreach (var stored in before)
+        {
+            var listRow = Assert.Single(rows, row => row.GetProperty("id").GetInt32() == stored.Id);
+            using var detailResponse = await reader.GetAsync($"/Countries/{stored.Id}");
+            Assert.Equal(HttpStatusCode.OK, detailResponse.StatusCode);
+            using var detail = JsonDocument.Parse(await detailResponse.Content.ReadAsStringAsync());
+            var detailRow = detail.RootElement;
+            string[] expectedKeys = stored.Name == "Alpha"
+                ? ["continent", "countryCode", "createdDate", "id", "iso2", "iso3", "modifiedDate", "name"]
+                : ["id", "name"];
+            Assert.Equal(expectedKeys, listRow.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
+            Assert.Equal(expectedKeys, detailRow.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal));
+            foreach (var key in expectedKeys)
+            {
+                Assert.Equal(listRow.GetProperty(key).GetRawText(), detailRow.GetProperty(key).GetRawText());
+            }
+            Assert.Equal(stored.Id, detailRow.GetProperty("id").GetInt32());
+            Assert.Equal(stored.Name, detailRow.GetProperty("name").GetString());
+            if (stored.Name == "Alpha")
+            {
+                Assert.Equal("Asia", detailRow.GetProperty("continent").GetString());
+                Assert.Equal("764", detailRow.GetProperty("countryCode").GetString());
+                Assert.Equal("TH", detailRow.GetProperty("iso2").GetString());
+                Assert.Equal("THA", detailRow.GetProperty("iso3").GetString());
+                Assert.Equal(stored.CreatedDate, detailRow.GetProperty("createdDate").GetDateTime());
+                Assert.Equal(stored.ModifiedDate, detailRow.GetProperty("modifiedDate").GetDateTime());
+            }
+        }
+
+        await using var afterContext = fixture.CreateContext();
+        var after = await afterContext.Countries.AsNoTracking().OrderBy(row => row.Id)
+            .Select(row => new
+            {
+                row.Id,
+                row.Name,
+                row.Continent,
+                row.CountryCode,
+                row.Iso2,
+                row.Iso3,
+                row.CreatedDate,
+                row.ModifiedDate,
+                Version = EF.Property<uint>(row, "xmin")
+            }).ToArrayAsync();
+        Assert.Equal(before, after);
+    }
+
     /// <summary>Zero remains invalid; missing negative identifiers preserve source404 without writes.</summary>
     [Theory]
     [InlineData(0, HttpStatusCode.BadRequest)]
