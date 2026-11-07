@@ -34,8 +34,8 @@ public sealed class CountryLegacyIdentifierHttpTests(CountryLifecycleFixture fix
         {
             await seed.Database.ExecuteSqlRawAsync("""
                 INSERT INTO "Country" ("Name", "Continent", "CountryCode", "ISO2", "ISO3", "CreatedDate", "ModifiedDate")
-                VALUES ('Alpha', 'Asia', '764', 'TH', 'THA', TIMESTAMP '2001-02-03 04:05:06', TIMESTAMP '2002-03-04 05:06:07'),
-                       ('Beta', NULL, NULL, NULL, NULL, NULL, NULL)
+                VALUES ('Beta', NULL, NULL, NULL, NULL, NULL, NULL),
+                       ('Alpha', 'Asia', '764', 'TH', 'THA', TIMESTAMP '2001-02-03 04:05:06', TIMESTAMP '2002-03-04 05:06:07')
                 """);
         }
 
@@ -61,6 +61,7 @@ public sealed class CountryLegacyIdentifierHttpTests(CountryLifecycleFixture fix
         using var list = JsonDocument.Parse(await listResponse.Content.ReadAsStringAsync());
         var rows = list.RootElement.EnumerateArray().ToArray();
         Assert.Equal(2, rows.Length);
+        Assert.Equal(["Alpha", "Beta"], rows.Select(row => row.GetProperty("name").GetString()));
 
         foreach (var stored in before)
         {
