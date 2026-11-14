@@ -1,0 +1,53 @@
+name: Verify Country image build
+
+on:
+  pull_request:
+    branches: [main, develop, staging]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  image-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Build actual image without publication
+        timeout-minutes: 25
+        shell: bash
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_HEAD" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          image="country-ci:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if docker image inspect "$image" >/dev/null 2>&1; then
+            echo 'Owned image tag already exists' >&2
+            exit 1
+          fi
+          docker build --iidfile "$RUNNER_TEMP/country-image-id" --tag "$image" \
+            --file Legacy.Maliev.CountryService.Api/Dockerfile .
+      - name: Remove owned image
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          image="country-ci:${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          if test -f "$RUNNER_TEMP/country-image-id"; then
+            id="$(cat "$RUNNER_TEMP/country-image-id")"
+            [[ "$id" =~ ^sha256:[0-9a-f]{64}$ ]]
+            test "$(docker image inspect --format '{{.Id}}' "$image")" = "$id"
+            docker image rm "$image"
+            if docker image inspect "$image" >/dev/null 2>&1; then exit 1; fi
+          elif docker image inspect "$image" >/dev/null 2>&1; then
+            echo 'Image exists without ownership receipt; preserving it' >&2
+            exit 1
+          fi
