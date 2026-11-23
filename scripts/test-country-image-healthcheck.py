@@ -49,6 +49,34 @@ class CountryImageHealthcheckTests(unittest.TestCase):
                 self.assertEqual(expected_exit, result.returncode, result.stderr.decode())
                 self.assertEqual(["/countries/liveness"], requests)
 
+    def test_truncated_200_response_is_unhealthy(self):
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200)
+                self.send_header("Content-Length", "10")
+                self.end_headers()
+                self.wfile.write(b"x")
+
+            def log_message(self, *_args):
+                pass
+
+        with HTTPServer(("127.0.0.1", 0), Handler) as server:
+            serving = Thread(target=server.serve_forever, daemon=True)
+            serving.start()
+            try:
+                result = subprocess.run(
+                    ["/bin/sh", str(API / "healthcheck.sh"), str(server.server_port)],
+                    capture_output=True,
+                    timeout=5,
+                    check=False,
+                )
+            finally:
+                server.shutdown()
+                serving.join(timeout=3)
+                self.assertFalse(serving.is_alive())
+
+        self.assertNotEqual(0, result.returncode)
+
 
 if __name__ == "__main__":
     unittest.main()
