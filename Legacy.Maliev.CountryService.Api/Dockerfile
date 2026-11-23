@@ -22,8 +22,13 @@ RUN dotnet publish Legacy.Maliev.CountryService.Api/Legacy.Maliev.CountryService
 
 FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS runtime
 WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+COPY Legacy.Maliev.CountryService.Api/healthcheck.sh /app/healthcheck.sh
 COPY --from=build --chown=$APP_UID:$APP_UID /app .
 USER $APP_UID
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD ["/bin/sh", "/app/healthcheck.sh", "8080"]
 ENTRYPOINT ["dotnet", "Legacy.Maliev.CountryService.Api.dll"]
