@@ -1,3 +1,4 @@
+using System.Data;
 using Legacy.Maliev.CountryService.Data;
 using Legacy.Maliev.CountryService.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -7,6 +8,19 @@ namespace Legacy.Maliev.CountryService.Tests.Data;
 
 public sealed class CountryModelCompatibilityTests
 {
+    [Fact]
+    public void CountryModel_MatchesMigrationSnapshotWithoutConnecting()
+    {
+        var options = new DbContextOptionsBuilder<CountryDbContext>()
+            .UseNpgsql("Host=localhost;Database=unused;Username=unused")
+            .Options;
+        using var context = new CountryDbContext(options);
+
+        Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+        Assert.False(context.Database.HasPendingModelChanges());
+        Assert.Equal(ConnectionState.Closed, context.Database.GetDbConnection().State);
+    }
+
     [Fact]
     public void CountryMapping_PreservesLegacyTableAndColumnContract()
     {
